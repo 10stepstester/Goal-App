@@ -387,6 +387,14 @@ function SubtaskRow({
   const [longPressActive, setLongPressActive] = useState(false);
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Cancel long-press if a drag becomes active (prevents sheet from appearing mid-drag)
+  useEffect(() => {
+    if (isDragActive && longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      setLongPressActive(false);
+    }
+  }, [isDragActive]);
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: subtask.id,
     disabled: isEffectivelyComplete,
@@ -574,32 +582,7 @@ function SubtaskRow({
               ))}
             </SortableContext>
           )}
-          {completedChildren.length > 0 && (
-            <div className="opacity-60">
-              {completedChildren.map((child) => (
-                <SubtaskRow
-                  key={child.id}
-                  subtask={child}
-                  goalId={goalId}
-                  depth={depth + 1}
-                  accentColor={accentColor}
-                  darkMode={dm}
-                  editingSubtaskId={editingSubtaskId}
-                  setEditingSubtaskId={setEditingSubtaskId}
-                  toggleSubtask={toggleSubtask}
-                  updateSubtaskTitle={updateSubtaskTitle}
-                  deleteSubtask={deleteSubtask}
-                  addChildSubtask={addChildSubtask}
-                  addSiblingSubtask={addSiblingSubtask}
-                  moveSubtask={moveSubtask}
-                  categories={categories}
-                  isDragActive={isDragActive}
-                  collapsedIds={collapsedIds}
-                  onToggleCollapse={onToggleCollapse}
-                />
-              ))}
-            </div>
-          )}
+          {/* Completed children are shown in the global completed section at the bottom */}
         </>
       )}
 
@@ -674,6 +657,36 @@ function SmartItemRow({
   );
 }
 
+// ─── CompletedRow ────────────────────────────────────────────────────────────
+
+function CompletedRow({
+  subtask,
+  accentColor,
+  darkMode = false,
+  onUncheck,
+}: {
+  subtask: Subtask;
+  accentColor: string;
+  darkMode?: boolean;
+  onUncheck: () => void;
+}) {
+  const dm = darkMode;
+  return (
+    <div
+      className={`flex items-center gap-1.5 py-2 px-2 rounded-lg transition-all ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
+    >
+      <div className="w-[14px] flex-shrink-0" />
+      <div className="w-5 flex-shrink-0" />
+      <div className="flex-shrink-0 cursor-pointer" onClick={onUncheck}>
+        <CheckIcon checked={true} accentColor={accentColor} />
+      </div>
+      <span className={`text-sm flex-1 min-w-0 px-1 line-through ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>
+        {subtask.title || 'Untitled'}
+      </span>
+    </div>
+  );
+}
+
 // ─── GoalList ────────────────────────────────────────────────────────────────
 
 type Tab = 'raw' | 'smart';
@@ -699,6 +712,7 @@ export default function GoalList({
 
   // Collapsed category state
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const [completedExpanded, setCompletedExpanded] = useState(true);
   const onToggleCollapse = useCallback((id: string) => {
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -894,16 +908,26 @@ export default function GoalList({
   const handleDragEnd = async (event: DragEndEvent) => {
     setIsDragActive(false);
     const { active, over } = event;
-    if (!over || active.id === over.id || !goalId) return;
+    console.log('[DragEnd] active:', active.id, 'over:', over?.id);
+    if (!over || active.id === over.id || !goalId) {
+      console.log('[DragEnd] early return — no over, same id, or no goalId');
+      return;
+    }
 
     const activeId = String(active.id);
     const overId = String(over.id);
     const activeItem = subtasks.find((s) => s.id === activeId);
     const overItem = subtasks.find((s) => s.id === overId);
 
-    if (!activeItem || !overItem) return;
+    if (!activeItem || !overItem) {
+      console.log('[DragEnd] item not found in subtasks');
+      return;
+    }
     // Only reorder within same parent
-    if (activeItem.parent_id !== overItem.parent_id) return;
+    if (activeItem.parent_id !== overItem.parent_id) {
+      console.log('[DragEnd] different parents — cross-category drag ignored');
+      return;
+    }
 
     const parentId = activeItem.parent_id;
     const siblings = subtasks
@@ -912,27 +936,40 @@ export default function GoalList({
 
     const oldIndex = siblings.findIndex((s) => s.id === activeId);
     const newIndex = siblings.findIndex((s) => s.id === overId);
-    if (oldIndex === -1 || newIndex === -1) return;
+    if (oldIndex === -1 || newIndex === -1) {
+      console.log('[DragEnd] index not found:', { oldIndex, newIndex });
+      return;
+    }
 
+    console.log('[DragEnd] reordering index', oldIndex, '→', newIndex);
     const reordered = arrayMove(siblings, oldIndex, newIndex);
     const updates = reordered.map((s, i) => ({ id: s.id, position: i + 1 }));
 
-    // Optimistic update
+    // Snapshot for revert
+    const prevSubtasks = subtasks;
+
+    // Optimistic update FIRST — before any await
     setSubtasks((prev) => {
       const updated = new Map(updates.map((u) => [u.id, u.position]));
       return prev.map((s) => updated.has(s.id) ? { ...s, position: updated.get(s.id)! } : s);
     });
 
     // Persist each changed position
-    await Promise.all(
-      updates.map(({ id, position }) =>
-        fetch(`/api/goals/${goalId}/subtasks`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ subtaskId: id, position }),
-        })
-      )
-    );
+    try {
+      const results = await Promise.all(
+        updates.map(({ id, position }) =>
+          fetch(`/api/goals/${goalId}/subtasks`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ subtaskId: id, position }),
+          })
+        )
+      );
+      results.forEach((r, i) => console.log(`[DragEnd] PATCH[${i}] status:`, r.status));
+    } catch (err) {
+      console.error('[DragEnd] PATCH failed, reverting:', err);
+      setSubtasks(prevSubtasks);
+    }
   };
 
   // ── Smart list operations ──────────────────────────────────────────────────
@@ -982,11 +1019,18 @@ export default function GoalList({
     );
   }
 
-  const tree = buildSubtaskTree(subtasks);
-  const activeTree = tree.filter((s) => !s.is_completed);
-  const completedTree = tree.filter((s) => s.is_completed);
+  // Build active tree from non-completed items only
+  const activeTree = buildSubtaskTree(subtasks.filter((s) => !s.is_completed));
 
-  // Categories for move dropdown = all root-level items
+  // Completed items for the bottom section:
+  // Show items that are completed and whose parent is NOT also completed (avoids duplicate nesting)
+  const allCompletedSubtasks = subtasks.filter((s) => s.is_completed);
+  const completedItems = allCompletedSubtasks.filter(
+    (s) => !s.parent_id || !allCompletedSubtasks.some((p) => p.id === s.parent_id)
+  );
+  const totalCompletedCount = allCompletedSubtasks.length;
+
+  // Categories for move dropdown = all root-level active items
   const categories = activeTree.map((s) => ({ id: s.id, title: s.title }));
 
   return (
@@ -1050,7 +1094,7 @@ export default function GoalList({
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
               >
-                {tree.length > 0 ? (
+                {(activeTree.length > 0 || allCompletedSubtasks.length > 0) ? (
                   <div>
                     {/* Active root items */}
                     <SortableContext
@@ -1081,38 +1125,33 @@ export default function GoalList({
                       ))}
                     </SortableContext>
 
-                    {/* Completed section */}
-                    {completedTree.length > 0 && (
+                    {/* Completed section — all completed items at any nesting level */}
+                    {allCompletedSubtasks.length > 0 && (
                       <>
-                        <div className={`flex items-center gap-2 pt-3 pb-1 px-1 ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>
+                        <button
+                          onClick={() => setCompletedExpanded((v) => !v)}
+                          className={`flex items-center gap-2 w-full pt-3 pb-1 px-1 ${dm ? 'text-zinc-500' : 'text-gray-400'}`}
+                        >
                           <div className={`flex-1 h-px ${dm ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-                          <span className="text-xs font-medium">Completed ({completedTree.length})</span>
+                          <span className="text-xs font-medium flex items-center gap-1.5">
+                            <ChevronRight size={10} className={`transition-transform duration-150 ${completedExpanded ? 'rotate-90' : ''}`} />
+                            Completed ({totalCompletedCount})
+                          </span>
                           <div className={`flex-1 h-px ${dm ? 'bg-zinc-700' : 'bg-gray-200'}`} />
-                        </div>
-                        <div className="opacity-60">
-                          {completedTree.map((subtask) => (
-                            <SubtaskRow
-                              key={subtask.id}
-                              subtask={subtask}
-                              goalId={goalId || ''}
-                              depth={0}
-                              accentColor={accentColor}
-                              darkMode={dm}
-                              editingSubtaskId={editingSubtaskId}
-                              setEditingSubtaskId={setEditingSubtaskId}
-                              toggleSubtask={toggleSubtask}
-                              updateSubtaskTitle={updateSubtaskTitle}
-                              deleteSubtask={deleteSubtask}
-                              addChildSubtask={addSubtask}
-                              addSiblingSubtask={addSiblingSubtask}
-                              moveSubtask={moveSubtask}
-                              categories={categories}
-                              isDragActive={isDragActive}
-                              collapsedIds={collapsedIds}
-                              onToggleCollapse={onToggleCollapse}
-                            />
-                          ))}
-                        </div>
+                        </button>
+                        {completedExpanded && (
+                          <div className="opacity-60">
+                            {completedItems.map((subtask) => (
+                              <CompletedRow
+                                key={subtask.id}
+                                subtask={subtask}
+                                accentColor={accentColor}
+                                darkMode={dm}
+                                onUncheck={() => toggleSubtask(subtask.id, false)}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>

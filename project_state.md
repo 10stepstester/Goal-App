@@ -1,6 +1,6 @@
 # Project State
 
-*Last updated: 2026-03-18*
+*Last updated: 2026-03-18 (Session 2)*
 
 ## Current Status
 
@@ -12,6 +12,11 @@ The app is functional and deployed on Vercel at https://goal-app-five-beta.verce
 - Initial Supabase schema: users, goals, subtasks, sms_conversations, activity_log
 - Basic goal CRUD, subtask management, SMS webhook, cron nudge job
 - Supabase + Twilio + Anthropic + Google Calendar integration
+
+### Bug Fixes — Session 2 (2026-03-18)
+- **Drag snap-back fixed** — added `console.log` to `handleDragEnd` for debugging, added revert-on-failure if PATCH errors, fixed long-press sheet firing mid-drag on mobile (useEffect cancels long-press timer when isDragActive becomes true)
+- **Completed items at all nesting levels** — completed child tasks now move to the global "Completed (N)" section instead of staying inline under their parent. Active tree is built from non-completed items only. Completed section is collapsible (chevron toggle). Count reflects all completed subtasks at any depth. Unchecking an item returns it to its original parent position.
+- **CompletedRow component** — simplified row for the completed section (no drag, no hover actions; just checkbox to uncheck + strikethrough title)
 
 ### Phase 1 — Committed & Deployed (2026-03-18)
 - **Roboto font** — switched from Geist; category headers weight 500, tasks weight 400
@@ -47,8 +52,8 @@ The app is functional and deployed on Vercel at https://goal-app-five-beta.verce
 
 ## What's Next
 
-- **Phase 2 (PART 3A-3C)** — SMS cron every 10 min, focus mode, nudge logic overhaul
-- **Phase 3 (PART 3D-3E)** — Claude prompt refactor + prompts.ts focus-coach template
+- **Phase 2 (Session 3)** — SMS cron every 10 min (`*/10 * * * *`), focus mode commands, nudge logic overhaul with conversation context
+- **Phase 3 (Session 4)** — claude.ts `generateNudge` refactor + prompts.ts focus-coach template
 - **Smart List sync** — when raw to-do is deleted, remove it from smart_list_items too
 - **Auth** — no user authentication on the web UI (API uses service role key directly)
 - **Multi-user** — schema supports it, web UI is single-user (hardcoded user fetch)
