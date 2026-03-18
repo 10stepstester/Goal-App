@@ -71,8 +71,8 @@ export async function POST() {
     // Clear existing smart list
     await supabase.from('smart_list_items').delete().eq('user_id', user.id);
 
-    // Insert new items
-    const items = await insertReorganized(user.id, reorganized, null);
+    // Batch insert new items in one DB call
+    const items = await insertReorganized(user.id, reorganized);
 
     return NextResponse.json({ items });
   } catch (error) {
@@ -134,46 +134,35 @@ export async function PATCH(request: Request) {
   }
 }
 
-// Helper: insert reorganized items recursively
+// Helper: batch insert all reorganized items in one DB call (flat list only)
 async function insertReorganized(
   userId: string,
   items: ReorganizedItem[],
-  parentId: string | null
 ): Promise<Record<string, unknown>[]> {
-  const result: Record<string, unknown>[] = [];
+  if (items.length === 0) return [];
 
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i];
-    const { data: inserted, error } = await supabase
-      .from('smart_list_items')
-      .insert({
-        user_id: userId,
-        raw_subtask_id: item.raw_subtask_id,
-        title: item.title,
-        priority: item.priority,
-        reasoning: item.reasoning,
-        is_completed: false,
-        position: i + 1,
-        parent_id: parentId,
-      })
-      .select()
-      .single();
+  const rows = items.map((item, i) => ({
+    user_id: userId,
+    raw_subtask_id: item.raw_subtask_id || null,
+    title: item.title,
+    priority: item.priority,
+    reasoning: item.reasoning,
+    is_completed: false,
+    position: i + 1,
+    parent_id: null,
+  }));
 
-    if (error || !inserted) {
-      console.error('Insert smart list item error:', error);
-      continue;
-    }
+  const { data: inserted, error } = await supabase
+    .from('smart_list_items')
+    .insert(rows)
+    .select();
 
-    const node: Record<string, unknown> = { ...inserted, children: [] };
-
-    if (item.children && item.children.length > 0) {
-      node.children = await insertReorganized(userId, item.children, inserted.id);
-    }
-
-    result.push(node);
+  if (error || !inserted) {
+    console.error('Batch insert smart list items error:', error);
+    return [];
   }
 
-  return result;
+  return inserted.map((row) => ({ ...row, children: [] }));
 }
 
 // Helper: build tree from flat list

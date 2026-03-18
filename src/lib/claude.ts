@@ -231,53 +231,38 @@ export async function reorganizeTodos(subtasks: Subtask[]): Promise<ReorganizedI
   }
 
   try {
-    const todoList = subtasks.map((s) => ({
-      id: s.id,
-      title: s.title,
-      is_completed: s.is_completed,
-      parent_id: s.parent_id,
-    }));
+    // Pre-filter: only send leaf nodes (items with no children) — skip category headers
+    const subtaskIds = new Set(subtasks.map((s) => s.id));
+    const parentIds = new Set(subtasks.filter((s) => s.parent_id).map((s) => s.parent_id as string));
+    const leaves = subtasks.filter((s) => !parentIds.has(s.id));
+
+    // Use short index-based IDs to minimise token count
+    const indexToId = leaves.map((s) => s.id);
+    const todoLines = leaves.map((s, i) =>
+      `${i}|${s.is_completed ? 'done' : 'todo'}|${s.title}`
+    ).join('\n');
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
-      max_tokens: 16384,
-      system: 'You reorganize to-do lists. Always respond with valid JSON only, no markdown code fences. You MUST include every single item — never skip or filter any.',
+      model: 'claude-haiku-4-5',
+      max_tokens: 4096,
+      system: 'You prioritize to-do lists. Respond with a JSON array only — no markdown, no explanation.',
       messages: [{
         role: 'user',
-        content: `Here are someone's raw to-do items (some are nested under category parents). Flatten and prioritize ALL items into a single ordered list by importance. Do NOT group or nest items — output a flat array sorted by priority.
+        content: `Prioritize these ${leaves.length} tasks by importance (most important first). Completed tasks go last.
 
-There are ${todoList.length} total items. Your output MUST contain ALL of them.
+Format: index|status|title
+${todoLines}
 
-Raw to-dos:
-${JSON.stringify(todoList, null, 2)}
+Return a JSON array of ALL ${leaves.length} items in priority order:
+[{"i":0,"title":"cleaned title","r":"reason ≤8 words"},...]
 
-Respond with JSON only — a flat array of ALL leaf-level items (skip category headers but include EVERY task under them), ordered by priority:
-[
-  {
-    "raw_subtask_id": "<original id or null if it was a category header>",
-    "title": "<cleaned up title>",
-    "priority": 1,
-    "reasoning": "<brief reason for this priority, 10 words max>",
-    "children": []
-  }
-]
-
-Rules:
-- CRITICAL: Include EVERY leaf-level item — there should be many items in the output, not just a few
-- Skip category header items (ones that only serve as grouping labels with children under them) but include ALL their children
-- Do NOT nest items — flat array only, children always empty
-- Do NOT create new grouping items
-- You may re-title for clarity but preserve the intent
-- Priority 1 = most important/urgent
-- Order the array by priority (most important first)
-- Keep completed items at the end
-- Count your output items — if you have fewer than the total leaf items, you are missing some`
+Rules: include every item, i = original index, you may clean up the title slightly.`
       }],
     });
 
     const textBlock = response.content.find((block) => block.type === 'text');
     if (!textBlock) {
-      return subtasks.map((s, i) => ({
+      return leaves.map((s, i) => ({
         raw_subtask_id: s.id,
         title: s.title,
         priority: i + 1,
@@ -289,10 +274,22 @@ Rules:
     // Strip markdown code fences if present (```json ... ```)
     let jsonText = textBlock.text.trim();
     jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
-    return JSON.parse(jsonText) as ReorganizedItem[];
+
+    // Map short index responses back to real subtask IDs
+    const parsed = JSON.parse(jsonText) as Array<{ i: number; title: string; r?: string }>;
+    return parsed.map((item, pos) => ({
+      raw_subtask_id: indexToId[item.i] ?? null,
+      title: item.title,
+      priority: pos + 1,
+      reasoning: item.r ?? '',
+      children: [],
+    }));
   } catch (error) {
     console.error('[Claude] Error reorganizing todos:', error);
-    return subtasks.map((s, i) => ({
+    // Fall back to leaf nodes in original order
+    const parentIds = new Set(subtasks.filter((s) => s.parent_id).map((s) => s.parent_id as string));
+    const leaves = subtasks.filter((s) => !parentIds.has(s.id));
+    return leaves.map((s, i) => ({
       raw_subtask_id: s.id,
       title: s.title,
       priority: i + 1,

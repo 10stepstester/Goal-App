@@ -640,9 +640,19 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
                 {count > 0 && (
                   <span className="text-[10px] sm:text-xs mt-0.5 opacity-50">{count}</span>
                 )}
-                {tab === 'smart' && smartLoading && (
-                  <div className="absolute top-2 right-3">
-                    <div className="w-3 h-3 border border-t-transparent rounded-full animate-spin" style={{ borderColor: accentColor, borderTopColor: 'transparent' }} />
+                {tab === 'smart' && (
+                  <div
+                    className="absolute top-2 right-3"
+                    onClick={(e) => { e.stopPropagation(); if (!smartLoading && subtasks.length > 0) regenerateSmartList(); }}
+                    title="Refresh smart list"
+                  >
+                    {smartLoading ? (
+                      <div className="w-3.5 h-3.5 border border-t-transparent rounded-full animate-spin" style={{ borderColor: accentColor, borderTopColor: 'transparent' }} />
+                    ) : (
+                      <svg className={`w-3.5 h-3.5 transition-opacity ${subtasks.length === 0 ? 'opacity-20' : 'opacity-40 hover:opacity-80 cursor-pointer'}`} style={{ color: accentColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
                   </div>
                 )}
               </button>
@@ -718,16 +728,6 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
                 </div>
               )}
 
-              <button
-                onClick={regenerateSmartList}
-                disabled={smartLoading || subtasks.length === 0}
-                className={`w-full flex items-center justify-center gap-2 text-sm transition-colors px-3 py-3 sm:py-2 rounded-lg mt-3 ${dm ? 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5 disabled:opacity-30' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100 disabled:opacity-30'}`}
-              >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                {smartLoading ? 'Reorganizing...' : 'Reorganize'}
-              </button>
             </>
           )}
         </div>
