@@ -55,3 +55,17 @@ export interface ActivityLog {
   subtask_id: string | null;
   timestamp: string;
 }
+
+export interface SmartListItem {
+  id: string;
+  user_id: string;
+  raw_subtask_id: string | null;
+  title: string;
+  priority: number;
+  reasoning: string | null;
+  is_completed: boolean;
+  position: number;
+  parent_id: string | null;
+  created_at: string;
+  children?: SmartListItem[];
+}

@@ -1,5 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
-import type { Goal } from '@/types/index';
+import type { Goal, Subtask } from '@/types/index';
 import { DEFAULT_COACHING_PROMPT } from '@/lib/prompts';
 
 const anthropic = new Anthropic();
@@ -207,5 +207,88 @@ Reply naturally as a friend. Under 160 characters. Read the conversation — res
   } catch (error) {
     console.error('[Claude] Error generating coaching reply:', error);
     return 'Nice work! Keep the momentum going.';
+  }
+}
+
+export interface ReorganizedItem {
+  raw_subtask_id: string | null;
+  title: string;
+  priority: number;
+  reasoning: string;
+  children: ReorganizedItem[];
+}
+
+export async function reorganizeTodos(subtasks: Subtask[]): Promise<ReorganizedItem[]> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    console.log('[Claude] API key not configured. Returning items as-is.');
+    return subtasks.map((s, i) => ({
+      raw_subtask_id: s.id,
+      title: s.title,
+      priority: i + 1,
+      reasoning: '',
+      children: [],
+    }));
+  }
+
+  try {
+    const todoList = subtasks.map((s) => ({
+      id: s.id,
+      title: s.title,
+      is_completed: s.is_completed,
+      parent_id: s.parent_id,
+    }));
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 1500,
+      system: 'You reorganize to-do lists. Always respond with valid JSON only, no markdown code fences.',
+      messages: [{
+        role: 'user',
+        content: `Here are someone's raw to-do items. Reorganize them into a prioritized, logical order. Group related items, suggest better ordering, and add brief reasoning for your prioritization.
+
+Raw to-dos:
+${JSON.stringify(todoList, null, 2)}
+
+Respond with JSON only — an array of items:
+[
+  {
+    "raw_subtask_id": "<original id or null if you're suggesting a new grouping>",
+    "title": "<cleaned up title>",
+    "priority": 1,
+    "reasoning": "<brief reason for this priority, 10 words max>",
+    "children": [<nested items in same format>]
+  }
+]
+
+Rules:
+- Keep all original items (don't drop any)
+- You may re-title for clarity but preserve the intent
+- Priority 1 = most important/urgent
+- Group related items as children when it makes sense
+- Keep it practical, not over-organized`
+      }],
+    });
+
+    const textBlock = response.content.find((block) => block.type === 'text');
+    if (!textBlock) {
+      return subtasks.map((s, i) => ({
+        raw_subtask_id: s.id,
+        title: s.title,
+        priority: i + 1,
+        reasoning: '',
+        children: [],
+      }));
+    }
+
+    return JSON.parse(textBlock.text.trim()) as ReorganizedItem[];
+  } catch (error) {
+    console.error('[Claude] Error reorganizing todos:', error);
+    return subtasks.map((s, i) => ({
+      raw_subtask_id: s.id,
+      title: s.title,
+      priority: i + 1,
+      reasoning: '',
+      children: [],
+    }));
   }
 }

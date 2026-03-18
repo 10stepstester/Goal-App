@@ -50,7 +50,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content: Goal List */}
+      {/* Main Content */}
       <main className="px-4 pt-1 sm:pt-0 sm:px-6 md:px-10" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="mx-auto max-w-2xl">
           <GoalList accentColor={accentColor} darkMode={darkMode} />
