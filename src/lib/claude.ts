@@ -244,19 +244,17 @@ export async function reorganizeTodos(subtasks: Subtask[]): Promise<ReorganizedI
 
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5',
-      max_tokens: 4096,
-      system: 'You prioritize to-do lists. Respond with a JSON array only — no markdown, no explanation.',
+      max_tokens: 512,
+      system: 'You prioritize to-do lists. Respond with a JSON array of integers only — no markdown, no explanation.',
       messages: [{
         role: 'user',
-        content: `Prioritize these ${leaves.length} tasks by importance (most important first). Completed tasks go last.
+        content: `Prioritize these ${leaves.length} tasks by importance (most important first). Put completed tasks last.
 
 Format: index|status|title
 ${todoLines}
 
-Return a JSON array of ALL ${leaves.length} items in priority order:
-[{"i":0,"title":"cleaned title","r":"reason ≤8 words"},...]
-
-Rules: include every item, i = original index, you may clean up the title slightly.`
+Return ONLY a JSON array of the indices in priority order, like: [3,0,7,1,...]
+Include ALL ${leaves.length} indices exactly once.`
       }],
     });
 
@@ -271,17 +269,17 @@ Rules: include every item, i = original index, you may clean up the title slight
       }));
     }
 
-    // Strip markdown code fences if present (```json ... ```)
+    // Strip markdown code fences if present
     let jsonText = textBlock.text.trim();
     jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
 
-    // Map short index responses back to real subtask IDs
-    const parsed = JSON.parse(jsonText) as Array<{ i: number; title: string; r?: string }>;
-    return parsed.map((item, pos) => ({
-      raw_subtask_id: indexToId[item.i] ?? null,
-      title: item.title,
+    // Response is just an ordered array of indices e.g. [3, 0, 7, ...]
+    const orderedIndices = JSON.parse(jsonText) as number[];
+    return orderedIndices.map((idx, pos) => ({
+      raw_subtask_id: indexToId[idx] ?? null,
+      title: leaves[idx]?.title ?? '',
       priority: pos + 1,
-      reasoning: item.r ?? '',
+      reasoning: '',
       children: [],
     }));
   } catch (error) {
