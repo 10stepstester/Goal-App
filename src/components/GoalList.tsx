@@ -399,21 +399,27 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
     fetchSmartList();
   }, [fetchGoal, fetchSmartList]);
 
-  // Regenerate smart list (called after adding items)
-  const regenerateSmartList = async () => {
+  // Debounced smart list regeneration — avoids spamming API on rapid edits
+  const regenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const regenerateSmartList = useCallback(() => {
+    // Show spinner immediately so user sees activity
     setSmartLoading(true);
-    try {
-      const res = await fetch('/api/smart-list', { method: 'POST' });
-      if (res.ok) {
-        const data = await res.json();
-        setSmartItems(data.items || []);
+    // Debounce: wait 800ms after last trigger before actually calling
+    if (regenTimerRef.current) clearTimeout(regenTimerRef.current);
+    regenTimerRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/smart-list', { method: 'POST' });
+        if (res.ok) {
+          const data = await res.json();
+          setSmartItems(data.items || []);
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setSmartLoading(false);
       }
-    } catch {
-      // Silently fail
-    } finally {
-      setSmartLoading(false);
-    }
-  };
+    }, 800);
+  }, []);
 
   // --- Raw to-do operations ---
 
@@ -489,6 +495,8 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ subtaskId, is_completed: completed }),
       });
+      // Regenerate smart list so completion state syncs
+      regenerateSmartList();
     } catch {
       fetchGoal();
     }
