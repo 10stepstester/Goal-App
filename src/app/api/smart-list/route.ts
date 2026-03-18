@@ -39,12 +39,13 @@ export async function POST() {
     const user = await getUser();
     if (!user) return NextResponse.json({ error: 'No user found' }, { status: 404 });
 
-    // Get the user's single goal
+    // Get the user's single goal — same ordering as /api/goals
     const { data: goals } = await supabase
       .from('goals')
       .select('id')
       .eq('user_id', user.id)
       .eq('is_active', true)
+      .order('position')
       .limit(1);
 
     if (!goals || goals.length === 0) {
