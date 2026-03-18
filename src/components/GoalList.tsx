@@ -763,6 +763,33 @@ export default function GoalList({
     fetchSmartList();
   }, [fetchGoal, fetchSmartList]);
 
+  // ── Cross-device sync: poll + focus refetch ────────────────────────────────
+
+  const activetabRef = useRef(activeTab);
+  useEffect(() => { activetabRef.current = activeTab; }, [activeTab]);
+
+  useEffect(() => {
+    // Refetch when window regains focus (e.g. switching back from phone)
+    const onFocus = () => {
+      fetchGoal();
+      fetchSmartList();
+    };
+    window.addEventListener('focus', onFocus);
+
+    // Poll every 15 seconds, but only while the tab is visible
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        fetchGoal();
+        fetchSmartList();
+      }
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      clearInterval(interval);
+    };
+  }, [fetchGoal, fetchSmartList]);
+
   // ── Smart list regen ───────────────────────────────────────────────────────
 
   const regenTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
