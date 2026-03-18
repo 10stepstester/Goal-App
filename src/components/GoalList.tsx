@@ -606,6 +606,9 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
   }
 
   const tree = buildSubtaskTree(subtasks);
+  // Split root items into active / completed sections (Google Keep style)
+  const activeTree = tree.filter((s) => !s.is_completed);
+  const completedTree = tree.filter((s) => s.is_completed);
 
   return (
     <div className="w-full max-w-2xl mx-auto">
@@ -666,7 +669,8 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
             <>
               {tree.length > 0 ? (
                 <div className="space-y-0">
-                  {tree.map((subtask) => (
+                  {/* Active items */}
+                  {activeTree.map((subtask) => (
                     <SubtaskRow
                       key={subtask.id}
                       subtask={subtask}
@@ -681,6 +685,34 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
                       deleteSubtask={deleteSubtask}
                       addChildSubtask={(parentId) => addSubtask(parentId)}
                     />
+                  ))}
+
+                  {/* Completed section divider */}
+                  {completedTree.length > 0 && (
+                    <div className={`flex items-center gap-2 pt-3 pb-1 px-1 ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>
+                      <div className={`flex-1 h-px ${dm ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                      <span className="text-xs font-medium">Completed ({completedTree.length})</span>
+                      <div className={`flex-1 h-px ${dm ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                    </div>
+                  )}
+
+                  {/* Completed items */}
+                  {completedTree.map((subtask) => (
+                    <div key={subtask.id} className="transition-opacity duration-300 opacity-60">
+                      <SubtaskRow
+                        subtask={subtask}
+                        goalId={goalId || ''}
+                        depth={0}
+                        accentColor={accentColor}
+                        darkMode={dm}
+                        editingSubtaskId={editingSubtaskId}
+                        setEditingSubtaskId={setEditingSubtaskId}
+                        toggleSubtask={toggleSubtask}
+                        updateSubtaskTitle={updateSubtaskTitle}
+                        deleteSubtask={deleteSubtask}
+                        addChildSubtask={(parentId) => addSubtask(parentId)}
+                      />
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -703,20 +735,42 @@ export default function GoalList({ accentColor = '#3b82f6', darkMode = false }: 
 
           {activeTab === 'smart' && (
             <>
-              {smartItems.length > 0 ? (
-                <div className="space-y-0">
-                  {smartItems.map((item) => (
-                    <SmartItemRow
-                      key={item.id}
-                      item={item}
-                      depth={0}
-                      accentColor={accentColor}
-                      darkMode={dm}
-                      onToggle={toggleSmartItem}
-                    />
-                  ))}
-                </div>
-              ) : (
+              {smartItems.length > 0 ? (() => {
+                const activeSmartItems = smartItems.filter((i) => !i.is_completed);
+                const completedSmartItems = smartItems.filter((i) => i.is_completed);
+                return (
+                  <div className="space-y-0">
+                    {activeSmartItems.map((item) => (
+                      <SmartItemRow
+                        key={item.id}
+                        item={item}
+                        depth={0}
+                        accentColor={accentColor}
+                        darkMode={dm}
+                        onToggle={toggleSmartItem}
+                      />
+                    ))}
+                    {completedSmartItems.length > 0 && (
+                      <div className={`flex items-center gap-2 pt-3 pb-1 px-1 ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>
+                        <div className={`flex-1 h-px ${dm ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                        <span className="text-xs font-medium">Completed ({completedSmartItems.length})</span>
+                        <div className={`flex-1 h-px ${dm ? 'bg-zinc-700' : 'bg-gray-200'}`} />
+                      </div>
+                    )}
+                    {completedSmartItems.map((item) => (
+                      <div key={item.id} className="transition-opacity duration-300 opacity-60">
+                        <SmartItemRow
+                          item={item}
+                          depth={0}
+                          accentColor={accentColor}
+                          darkMode={dm}
+                          onToggle={toggleSmartItem}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                );
+              })() : (
                 <div className={`text-center py-8 ${dm ? 'text-zinc-600' : 'text-gray-400'}`}>
                   {subtasks.length === 0 ? (
                     <p className="text-sm">Add some to-dos first, then check back here.</p>
