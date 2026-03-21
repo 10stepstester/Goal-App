@@ -45,19 +45,15 @@ export default function Home() {
 
       {/* ── Mobile layout (below md) ────────────────────────────────── */}
       <div className="md:hidden">
-        {/* Mobile top bar: timer + action buttons + gear */}
-        <div className="px-4 pt-2 pb-1">
-          <div className="flex items-center gap-2 mb-1">
-            <div className="flex-shrink-0">
-              <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
-            </div>
-          </div>
+        {/* Mobile top bar: single row — timer circle + action buttons + gear */}
+        <div className="px-3 pt-2 pb-1">
           <ActionButtons
             goalId={goalId}
             darkMode={darkMode}
             accentColor={accentColor}
             onThoughtAdded={() => setRefreshKey((k) => k + 1)}
             showSettingsGear={true}
+            timerSlot={<MeditationTimer darkMode={darkMode} accentColor={accentColor} inline={true} />}
           />
         </div>
 

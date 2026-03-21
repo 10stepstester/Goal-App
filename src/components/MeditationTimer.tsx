@@ -45,7 +45,7 @@ function playCompletionChime() {
   }
 }
 
-export default function MeditationTimer({ darkMode = false, accentColor = '#3b82f6' }: { darkMode?: boolean; accentColor?: string }) {
+export default function MeditationTimer({ darkMode = false, accentColor = '#3b82f6', inline = false }: { darkMode?: boolean; accentColor?: string; inline?: boolean }) {
   const [state, setState] = useState<TimerState>('idle');
   const [totalSeconds, setTotalSeconds] = useState(0);
   const [remaining, setRemaining] = useState(0);
@@ -227,86 +227,147 @@ export default function MeditationTimer({ darkMode = false, accentColor = '#3b82
         )}
       </div>
 
-      {/* ===== MOBILE: Compact pill design (below sm) ===== */}
-      <div className="flex sm:hidden relative">
-        {state === 'idle' && (
-          <div className="relative" ref={popoverRef}>
+      {/* ===== MOBILE INLINE: 38px circle for top bar ===== */}
+      {inline && (
+        <div className="relative flex-shrink-0" ref={popoverRef}>
+          <button
+            onClick={() => {
+              if (state === 'idle') setShowPopover(!showPopover);
+              else if (state === 'complete') reset();
+            }}
+            className="w-[38px] h-[38px] rounded-full flex items-center justify-center"
+            style={{ border: `2px solid ${state === 'running' ? accentColor : trackColor}` }}
+          >
+            {state === 'idle' && (
+              <span className={`text-[9px] font-mono ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>--:--</span>
+            )}
+            {state === 'running' && (
+              <>
+                <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 38 38">
+                  <circle
+                    cx="19" cy="19" r="17"
+                    fill="none"
+                    strokeWidth="2"
+                    style={{ stroke: accentColor }}
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 17}
+                    strokeDashoffset={2 * Math.PI * 17 - progress * 2 * Math.PI * 17}
+                    className="transition-all duration-1000 ease-linear"
+                  />
+                </svg>
+                <span className="text-[9px] font-mono tabular-nums font-medium" style={{ color: accentColor }}>
+                  {mm}:{ss}
+                </span>
+              </>
+            )}
+            {state === 'complete' && (
+              <svg className="w-4 h-4 animate-bounce-gentle" style={{ color: accentColor }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </button>
+
+          {showPopover && state === 'idle' && (
+            <div
+              className={`absolute top-full left-0 mt-1.5 flex gap-1.5 p-1.5 rounded-xl shadow-lg border z-50 ${dm ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}
+            >
+              <button
+                onClick={() => { start(2); setShowPopover(false); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150"
+                style={{ backgroundColor: `${accentColor}1F`, color: accentColor, border: `1px solid ${accentColor}30` }}
+              >
+                2 min
+              </button>
+              <button
+                onClick={() => { start(5); setShowPopover(false); }}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150"
+                style={{ backgroundColor: `${accentColor}1F`, color: accentColor, border: `1px solid ${accentColor}30` }}
+              >
+                5 min
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ===== MOBILE: Compact pill design (below sm, non-inline) ===== */}
+      {!inline && (
+        <div className="flex sm:hidden relative">
+          {state === 'idle' && (
+            <div className="relative" ref={popoverRef}>
+              <button
+                onClick={() => setShowPopover(!showPopover)}
+                className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
+                style={{ backgroundColor: `${accentColor}1F`, color: accentColor }}
+              >
+                Center
+                <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${showPopover ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showPopover && (
+                <div
+                  className={`absolute top-full left-0 mt-1.5 flex gap-1.5 p-1.5 rounded-xl shadow-lg border z-50 ${dm ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}
+                >
+                  <button
+                    onClick={() => { start(2); setShowPopover(false); }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150"
+                    style={{ backgroundColor: `${accentColor}1F`, color: accentColor, border: `1px solid ${accentColor}30` }}
+                  >
+                    2 min
+                  </button>
+                  <button
+                    onClick={() => { start(5); setShowPopover(false); }}
+                    className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150"
+                    style={{ backgroundColor: `${accentColor}1F`, color: accentColor, border: `1px solid ${accentColor}30` }}
+                  >
+                    5 min
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {state === 'running' && (
+            <div
+              className="relative flex items-center gap-2.5 px-4 py-2 rounded-full overflow-hidden"
+              style={{ backgroundColor: `${accentColor}1F` }}
+            >
+              <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: accentColor }} />
+              <span className="text-sm font-mono tabular-nums font-medium" style={{ color: accentColor }}>
+                {mm}:{ss}
+              </span>
+              <button
+                onClick={cancel}
+                className="ml-0.5 flex items-center justify-center w-5 h-5 rounded-full transition-colors duration-150"
+                style={{ color: accentColor }}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div
+                className="absolute bottom-0 left-0 h-[2px] transition-all duration-1000 ease-linear rounded-full"
+                style={{ width: `${progress * 100}%`, backgroundColor: accentColor }}
+              />
+            </div>
+          )}
+
+          {state === 'complete' && (
             <button
-              onClick={() => setShowPopover(!showPopover)}
-              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200"
+              onClick={reset}
+              className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium animate-fade-in transition-all duration-200"
               style={{ backgroundColor: `${accentColor}1F`, color: accentColor }}
             >
-              Center
-              <svg className={`w-3.5 h-3.5 transition-transform duration-200 ${showPopover ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
               </svg>
+              Centered
             </button>
-
-            {showPopover && (
-              <div
-                className={`absolute top-full left-0 mt-1.5 flex gap-1.5 p-1.5 rounded-xl shadow-lg border z-50 ${dm ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`}
-              >
-                <button
-                  onClick={() => { start(2); setShowPopover(false); }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150"
-                  style={{ backgroundColor: `${accentColor}1F`, color: accentColor, border: `1px solid ${accentColor}30` }}
-                >
-                  2 min
-                </button>
-                <button
-                  onClick={() => { start(5); setShowPopover(false); }}
-                  className="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-150"
-                  style={{ backgroundColor: `${accentColor}1F`, color: accentColor, border: `1px solid ${accentColor}30` }}
-                >
-                  5 min
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {state === 'running' && (
-          <div
-            className="relative flex items-center gap-2.5 px-4 py-2 rounded-full overflow-hidden"
-            style={{ backgroundColor: `${accentColor}1F` }}
-          >
-            {/* Pulsing dot indicator */}
-            <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: accentColor }} />
-            {/* Countdown */}
-            <span className="text-sm font-mono tabular-nums font-medium" style={{ color: accentColor }}>
-              {mm}:{ss}
-            </span>
-            {/* Cancel button */}
-            <button
-              onClick={cancel}
-              className="ml-0.5 flex items-center justify-center w-5 h-5 rounded-full transition-colors duration-150"
-              style={{ color: accentColor }}
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            {/* Progress bar along bottom */}
-            <div
-              className="absolute bottom-0 left-0 h-[2px] transition-all duration-1000 ease-linear rounded-full"
-              style={{ width: `${progress * 100}%`, backgroundColor: accentColor }}
-            />
-          </div>
-        )}
-
-        {state === 'complete' && (
-          <button
-            onClick={reset}
-            className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium animate-fade-in transition-all duration-200"
-            style={{ backgroundColor: `${accentColor}1F`, color: accentColor }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            Centered
-          </button>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </>
   );
 }

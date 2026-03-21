@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Plus, MessageCircle, Mic, MicOff, X, ArrowUp, Settings } from 'lucide-react';
+import { Plus, MessageCircle, Mic, MicOff, X, ArrowUp, Settings as SettingsIcon } from 'lucide-react';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type SpeechRecognitionInstance = any;
@@ -14,6 +14,7 @@ interface ActionButtonsProps {
   accentColor: string;
   onThoughtAdded: () => void;
   showSettingsGear?: boolean;
+  timerSlot?: React.ReactNode;
 }
 
 interface ChatMessage {
@@ -400,17 +401,20 @@ export default function ActionButtons({
   accentColor,
   onThoughtAdded,
   showSettingsGear = false,
+  timerSlot,
 }: ActionButtonsProps) {
   const [showThought, setShowThought] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   return (
     <>
-      {/* Mobile: compact menu bar */}
-      <div className="flex md:hidden items-center gap-0 py-2">
+      {/* Mobile: compact single-row bar with timer + buttons + gear */}
+      <div className="flex md:hidden items-center gap-2 p-2">
+        {timerSlot}
+
         <button
           onClick={() => setShowThought(true)}
-          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-medium transition-colors mr-1.5 ${
+          className={`flex flex-1 items-center justify-center gap-1.5 py-[9px] rounded-lg text-[12px] font-medium transition-colors ${
             darkMode
               ? 'bg-zinc-800 text-blue-300 active:bg-zinc-700'
               : 'bg-[#E6F1FB] text-[#185FA5] active:bg-[#d4e6f7]'
@@ -422,12 +426,11 @@ export default function ActionButtons({
 
         <button
           onClick={() => setShowChat(true)}
-          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-1.5 py-[9px] rounded-lg text-[12px] font-medium transition-colors ${
             darkMode
               ? 'bg-zinc-800 text-blue-300 active:bg-zinc-700'
               : 'bg-[#E6F1FB] text-[#185FA5] active:bg-[#d4e6f7]'
           }`}
-          style={{ marginRight: showSettingsGear ? '8px' : '0' }}
         >
           <MessageCircle className="h-[17px] w-[17px]" />
           Ask
@@ -435,7 +438,7 @@ export default function ActionButtons({
 
         {showSettingsGear && (
           <a href="/settings" className="flex-shrink-0">
-            <Settings className="h-[18px] w-[18px] text-gray-400" />
+            <SettingsIcon className="h-[18px] w-[18px] text-gray-400" />
           </a>
         )}
       </div>
