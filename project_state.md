@@ -1,12 +1,28 @@
 # Project State
 
-*Last updated: 2026-03-18 (Session 3)*
+*Last updated: 2026-03-21 (Session 4)*
 
 ## Current Status
 
-The app is functional and deployed on Vercel at https://goal-app-five-beta.vercel.app/. All recent work is committed and deployed. The dashboard has two tabs: Raw To-dos (hierarchical, editable list) and Smart List (AI-prioritized flat list). Note: GitHub pushes do NOT auto-trigger Vercel deploys — must run `npx vercel --prod` manually after each push.
+The app is functional and deployed on Vercel at https://goal-app-five-beta.vercel.app/. All recent work is committed and deployed. The dashboard has two tabs: Raw To-dos (hierarchical, editable list) and Smart List (AI-prioritized flat list), plus two action buttons between the header and list. Note: GitHub pushes do NOT auto-trigger Vercel deploys — must run `npx vercel --prod` manually after each push.
 
 ## What's Built
+
+### UI Redesign — Session 4 (2026-03-21)
+- **Responsive layout** — Desktop: flexbox row with timer column (180px, left), main content (max 640px, top-aligned), settings gear (right). Mobile: single column with compact top bar.
+- **Compact mobile menu bar** — Replaced full-width action buttons with a tight bar: two `flex-1` buttons (light blue bg, 13px text) + settings gear icon at right end.
+- **Removed drag grip icons** — No visible `GripVertical` handles; drag still works via long-press (mobile) and hover-drag (desktop).
+- **Removed tab counts** — "Raw To-dos" and "Smart List" labels only, no item counts.
+- **Tighter row spacing** — Category rows: 7px mobile / 8px desktop. Child rows: 5px mobile / 6px desktop.
+- **Smaller checkboxes** — 14px mobile, 16px desktop (down from 20px).
+- **Files changed:** `page.tsx` (full layout rewrite), `ActionButtons.tsx` (responsive mobile/desktop variants), `GoalList.tsx` (spacing, checkboxes, grip removal, tab counts).
+
+### Action Buttons — Session 4 (2026-03-21)
+- **"Add a Thought" button** — bottom sheet with text input + voice-to-text (Web Speech API). Submits as a new subtask, auto-refreshes the goal list.
+- **"Ask about List" button** — chat interface (85dvh panel) to ask Claude questions about tasks. New `/api/chat` endpoint fetches all subtasks and sends them with the user's question to `answerListQuestion()` in `claude.ts`.
+- **New files:** `ActionButtons.tsx` (458 lines), `/api/chat/route.ts`
+- **Wiring:** `page.tsx` passes `goalId`/`refreshKey` to coordinate between ActionButtons and GoalList. `GoalList.tsx` gained `refreshKey` and `onGoalLoaded` props.
+- **Animations:** `slide-up` (bottom sheet entrance), `pulse-ring` (mic button glow) in `globals.css`
 
 ### Core Features (Committed)
 - Initial Supabase schema: users, goals, subtasks, sms_conversations, activity_log

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Lightbulb, MessageCircle, Mic, MicOff, X, ArrowUp } from 'lucide-react';
+import { Plus, MessageCircle, Mic, MicOff, X, ArrowUp, Settings } from 'lucide-react';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type SpeechRecognitionInstance = any;
@@ -13,6 +13,7 @@ interface ActionButtonsProps {
   darkMode: boolean;
   accentColor: string;
   onThoughtAdded: () => void;
+  showSettingsGear?: boolean;
 }
 
 interface ChatMessage {
@@ -398,42 +399,70 @@ export default function ActionButtons({
   darkMode,
   accentColor,
   onThoughtAdded,
+  showSettingsGear = false,
 }: ActionButtonsProps) {
   const [showThought, setShowThought] = useState(false);
   const [showChat, setShowChat] = useState(false);
 
   return (
     <>
-      <div className="flex gap-3 py-3">
+      {/* Mobile: compact menu bar */}
+      <div className="flex md:hidden items-center gap-0 py-2">
         <button
           onClick={() => setShowThought(true)}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-medium transition-colors mr-1.5 ${
             darkMode
-              ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700'
-              : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+              ? 'bg-zinc-800 text-blue-300 active:bg-zinc-700'
+              : 'bg-[#E6F1FB] text-[#185FA5] active:bg-[#d4e6f7]'
           }`}
-          style={{
-            borderWidth: 1,
-            borderColor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          }}
         >
-          <Lightbulb className="h-5 w-5" style={{ color: accentColor }} />
+          <Plus className="h-[18px] w-[18px]" />
           Add thought
         </button>
 
         <button
           onClick={() => setShowChat(true)}
-          className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-base font-medium transition-colors ${
+          className={`flex flex-1 items-center justify-center gap-1.5 py-2.5 rounded-lg text-[13px] font-medium transition-colors ${
             darkMode
-              ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700'
-              : 'bg-gray-100 text-gray-700 active:bg-gray-200'
+              ? 'bg-zinc-800 text-blue-300 active:bg-zinc-700'
+              : 'bg-[#E6F1FB] text-[#185FA5] active:bg-[#d4e6f7]'
           }`}
-          style={{
-            borderWidth: 1,
-            borderColor: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-          }}
+          style={{ marginRight: showSettingsGear ? '8px' : '0' }}
         >
-          <MessageCircle className="h-5 w-5" style={{ color: accentColor }} />
+          <MessageCircle className="h-[17px] w-[17px]" />
+          Ask
+        </button>
+
+        {showSettingsGear && (
+          <a href="/settings" className="flex-shrink-0">
+            <Settings className="h-[18px] w-[18px] text-gray-400" />
+          </a>
+        )}
+      </div>
+
+      {/* Desktop: standard action buttons */}
+      <div className="hidden md:flex gap-3 py-3">
+        <button
+          onClick={() => setShowThought(true)}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+            darkMode
+              ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700 border border-zinc-700'
+              : 'bg-white text-gray-700 active:bg-gray-50 border border-gray-200'
+          }`}
+        >
+          <Plus className="h-4 w-4" />
+          Add thought
+        </button>
+
+        <button
+          onClick={() => setShowChat(true)}
+          className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-2.5 text-sm font-medium transition-colors ${
+            darkMode
+              ? 'bg-zinc-800/80 text-zinc-100 active:bg-zinc-700 border border-zinc-700'
+              : 'bg-white text-gray-700 active:bg-gray-50 border border-gray-200'
+          }`}
+        >
+          <MessageCircle className="h-4 w-4" />
           Ask about list
         </button>
       </div>

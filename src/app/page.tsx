@@ -43,39 +43,64 @@ export default function Home() {
       {/* Safe area top spacer — pushes content below iPhone notch */}
       <div className="w-full" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
 
-      {/* Top Bar */}
-      <header className="flex items-center justify-between px-4 pt-2 pb-1 sm:px-6 sm:py-6 md:px-10 md:py-8">
-        <div className="flex-shrink-0">
-          <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
-        </div>
-        <div className="flex-shrink-0">
-          <Settings onAccentChange={handleAccentChange} onDarkModeChange={handleDarkModeChange} darkMode={darkMode} />
-        </div>
-      </header>
-
-      {/* Action Buttons */}
-      <div className="px-4 sm:px-6 md:px-10">
-        <div className="mx-auto max-w-2xl">
+      {/* ── Mobile layout (below md) ────────────────────────────────── */}
+      <div className="md:hidden">
+        {/* Mobile top bar: timer + action buttons + gear */}
+        <div className="px-4 pt-2 pb-1">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex-shrink-0">
+              <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
+            </div>
+          </div>
           <ActionButtons
             goalId={goalId}
             darkMode={darkMode}
             accentColor={accentColor}
             onThoughtAdded={() => setRefreshKey((k) => k + 1)}
+            showSettingsGear={true}
           />
         </div>
-      </div>
 
-      {/* Main Content */}
-      <main className="px-4 pt-1 sm:pt-0 sm:px-6 md:px-10" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
-        <div className="mx-auto max-w-2xl">
+        {/* Mobile list */}
+        <main className="px-4 pt-1" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
           <GoalList
             accentColor={accentColor}
             darkMode={darkMode}
             refreshKey={refreshKey}
             onGoalLoaded={setGoalId}
           />
+        </main>
+      </div>
+
+      {/* ── Desktop layout (md and up) ──────────────────────────────── */}
+      <div className="hidden md:flex items-start gap-8 px-6 lg:px-10 pt-6">
+        {/* Left column: Timer */}
+        <div className="flex-shrink-0 w-[180px]">
+          <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
         </div>
-      </main>
+
+        {/* Main content column */}
+        <div className="flex-1 max-w-[640px]">
+          <ActionButtons
+            goalId={goalId}
+            darkMode={darkMode}
+            accentColor={accentColor}
+            onThoughtAdded={() => setRefreshKey((k) => k + 1)}
+          />
+          <GoalList
+            accentColor={accentColor}
+            darkMode={darkMode}
+            refreshKey={refreshKey}
+            onGoalLoaded={setGoalId}
+          />
+          <div style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }} />
+        </div>
+
+        {/* Settings gear (top right) */}
+        <div className="flex-shrink-0">
+          <Settings onAccentChange={handleAccentChange} onDarkModeChange={handleDarkModeChange} darkMode={darkMode} />
+        </div>
+      </div>
     </div>
   );
 }

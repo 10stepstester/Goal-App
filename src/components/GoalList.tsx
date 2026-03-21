@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, ChevronRight, Plus, X, ArrowRight } from 'lucide-react';
+import { ChevronRight, Plus, X, ArrowRight } from 'lucide-react';
 import type { Subtask, SmartListItem } from '@/types/index';
 
 // ─── CheckIcon ──────────────────────────────────────────────────────────────
@@ -33,7 +33,7 @@ function CheckIcon({
   const color = accentColor || '#3b82f6';
   return (
     <div
-      className="w-5 h-5 rounded-md border-2 flex items-center justify-center cursor-pointer flex-shrink-0"
+      className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-sm sm:rounded-md border-[1.5px] flex items-center justify-center cursor-pointer flex-shrink-0"
       style={{
         backgroundColor: checked ? color : 'transparent',
         borderColor: checked ? color : '#a1a1aa',
@@ -42,7 +42,7 @@ function CheckIcon({
       }}
     >
       {checked && (
-        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+        <svg className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
         </svg>
       )}
@@ -424,31 +424,20 @@ function SubtaskRow({
   return (
     <div ref={setNodeRef} style={style}>
       <div
-        className={`group relative flex items-center gap-1.5 py-2 rounded-lg transition-all duration-100
+        className={`group relative flex items-center gap-1.5 ${isCategory ? 'py-[7px] md:py-2' : 'py-[5px] md:py-1.5'} rounded-lg transition-all duration-100
           ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}
           ${isEffectivelyComplete && !isCategory ? 'opacity-60' : ''}
           ${longPressActive ? 'scale-[1.01] shadow-md' : ''}
         `}
-        style={{ paddingLeft: `${8 + depth * 20}px`, paddingRight: '8px' }}
         onTouchStart={onTouchStart}
         onTouchEnd={cancelLongPress}
         onTouchMove={cancelLongPress}
+        {...attributes}
+        {...listeners}
+        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'none' }}
       >
-        {/* Drag handle */}
-        <button
-          className={`flex-shrink-0 p-0.5 rounded cursor-grab active:cursor-grabbing transition-colors touch-none
-            ${dm ? 'text-zinc-700 hover:text-zinc-400' : 'text-gray-300 hover:text-gray-500'}
-          `}
-          style={{ touchAction: 'none' }}
-          {...attributes}
-          {...listeners}
-          tabIndex={-1}
-        >
-          <GripVertical size={14} />
-        </button>
-
         {/* Chevron for collapsible categories */}
-        {isCategory ? (
+        {isCategory && (
           <button
             onClick={() => onToggleCollapse(subtask.id)}
             className={`flex-shrink-0 transition-transform duration-150 p-0.5 rounded
@@ -456,12 +445,10 @@ function SubtaskRow({
             `}
           >
             <ChevronRight
-              size={13}
-              className={`transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'}`}
+              size={10}
+              className={`transition-transform duration-150 ${isCollapsed ? '' : 'rotate-90'} sm:w-3 sm:h-3`}
             />
           </button>
-        ) : (
-          <div className="w-5 flex-shrink-0" />
         )}
 
         {/* Checkbox */}
@@ -477,7 +464,7 @@ function SubtaskRow({
           <InlineEdit
             value={subtask.title}
             onSave={(title) => updateSubtaskTitle(subtask.id, title)}
-            className={`text-sm leading-snug ${isCategory ? 'font-medium' : 'font-normal'}
+            className={`text-[13px] leading-snug ${isCategory ? 'font-medium' : 'font-normal'}
               ${isEffectivelyComplete
                 ? (dm ? 'line-through text-zinc-500' : 'line-through text-gray-400')
                 : (dm ? 'text-zinc-200' : 'text-gray-800')
@@ -622,11 +609,11 @@ function SmartItemRow({
   return (
     <div>
       <div
-        className={`group flex items-start gap-3 py-2 rounded-lg transition-all duration-150
+        className={`group flex items-start gap-1.5 py-[5px] md:py-1.5 rounded-lg transition-all duration-150
           ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}
           ${item.is_completed ? 'opacity-60' : ''}
         `}
-        style={{ paddingLeft: `${12 + depth * 20}px`, paddingRight: '8px' }}
+        style={{ paddingLeft: `${14 + depth * 20}px`, paddingRight: '8px' }}
       >
         <div className="mt-0.5 flex-shrink-0" onClick={() => onToggle(item.id, !item.is_completed)}>
           <CheckIcon checked={item.is_completed} accentColor={accentColor} />
@@ -673,10 +660,8 @@ function CompletedRow({
   const dm = darkMode;
   return (
     <div
-      className={`flex items-center gap-1.5 py-2 px-2 rounded-lg transition-all ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
+      className={`flex items-center gap-1.5 py-[5px] md:py-1.5 px-2 rounded-lg transition-all ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}
     >
-      <div className="w-[14px] flex-shrink-0" />
-      <div className="w-5 flex-shrink-0" />
       <div className="flex-shrink-0 cursor-pointer" onClick={onUncheck}>
         <CheckIcon checked={true} accentColor={accentColor} />
       </div>
@@ -1074,13 +1059,12 @@ export default function GoalList({
           {(['raw', 'smart'] as const).map((tab) => {
             const isActive = activeTab === tab;
             const label = tab === 'raw' ? 'Raw To-dos' : 'Smart List';
-            const count = tab === 'raw' ? subtasks.length : smartItems.length;
             return (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`relative flex flex-col items-center justify-center py-3.5 sm:py-3 px-2
-                  text-sm font-medium transition-all duration-200 select-none
+                className={`relative flex items-center justify-center py-2 sm:py-2.5 px-2
+                  text-[13px] sm:text-sm font-medium transition-all duration-200 select-none
                   ${isActive
                     ? (dm ? 'bg-zinc-800 text-white' : 'bg-white text-gray-900')
                     : (dm ? 'text-zinc-400 hover:text-zinc-300 hover:bg-zinc-800/50' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200')
@@ -1090,8 +1074,7 @@ export default function GoalList({
                   <div className="absolute bottom-0 left-3 right-3 h-0.5 rounded-full"
                     style={{ backgroundColor: accentColor }} />
                 )}
-                <span className="text-xs sm:text-sm">{label}</span>
-                {count > 0 && <span className="text-[10px] sm:text-xs mt-0.5 opacity-50">{count}</span>}
+                <span className="text-[13px] sm:text-sm font-medium">{label}</span>
                 {tab === 'smart' && (
                   <div
                     className="absolute top-2 right-3"
