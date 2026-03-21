@@ -63,19 +63,7 @@ export default function Home() {
         </div>
       </header>
 
-      {/* Main Content — list first */}
-      <main className="px-4 pt-1 sm:pt-0 sm:px-6 md:px-10" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
-        <div className="mx-auto max-w-2xl">
-          <GoalList
-            accentColor={accentColor}
-            darkMode={darkMode}
-            refreshKey={refreshKey}
-            onGoalLoaded={setGoalId}
-          />
-        </div>
-      </main>
-
-      {/* Desktop Action Buttons — below the list */}
+      {/* Desktop Action Buttons — above the list */}
       <div className="hidden sm:block px-4 sm:px-6 md:px-10">
         <div className="mx-auto max-w-2xl">
           <ActionButtons
@@ -87,7 +75,19 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Desktop Timer + Meditation section — below list */}
+      {/* Main Content — list */}
+      <main className="px-4 pt-1 sm:pt-0 sm:px-6 md:px-10" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
+        <div className="mx-auto max-w-2xl">
+          <GoalList
+            accentColor={accentColor}
+            darkMode={darkMode}
+            refreshKey={refreshKey}
+            onGoalLoaded={setGoalId}
+          />
+        </div>
+      </main>
+
+      {/* Desktop Timer — below list */}
       <div className="hidden sm:flex justify-center px-4 sm:px-6 md:px-10 py-8">
         <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
       </div>
