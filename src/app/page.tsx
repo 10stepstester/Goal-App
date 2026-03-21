@@ -44,28 +44,26 @@ export default function Home() {
       <div className="w-full" style={{ height: 'env(safe-area-inset-top, 0px)' }} />
 
       {/* Top Bar */}
-      <header className="flex items-center justify-between px-4 pt-2 pb-1 sm:px-6 sm:py-6 md:px-10 md:py-8">
-        <div className="flex-shrink-0">
+      <header className="flex items-center justify-between px-4 pt-2 pb-1 sm:px-6 sm:pt-4 sm:pb-2 md:px-10">
+        {/* Mobile: timer + icon buttons in one row */}
+        <div className="flex sm:hidden items-center gap-2 flex-shrink-0">
           <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
-        </div>
-        <div className="flex-shrink-0">
-          <Settings onAccentChange={handleAccentChange} onDarkModeChange={handleDarkModeChange} darkMode={darkMode} />
-        </div>
-      </header>
-
-      {/* Action Buttons */}
-      <div className="px-4 sm:px-6 md:px-10">
-        <div className="mx-auto max-w-2xl">
           <ActionButtons
             goalId={goalId}
             darkMode={darkMode}
             accentColor={accentColor}
             onThoughtAdded={() => setRefreshKey((k) => k + 1)}
+            compact
           />
         </div>
-      </div>
+        {/* Desktop: just a spacer on the left */}
+        <div className="hidden sm:block" />
+        <div className="flex-shrink-0">
+          <Settings onAccentChange={handleAccentChange} onDarkModeChange={handleDarkModeChange} darkMode={darkMode} />
+        </div>
+      </header>
 
-      {/* Main Content */}
+      {/* Main Content — list first */}
       <main className="px-4 pt-1 sm:pt-0 sm:px-6 md:px-10" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>
         <div className="mx-auto max-w-2xl">
           <GoalList
@@ -76,6 +74,23 @@ export default function Home() {
           />
         </div>
       </main>
+
+      {/* Desktop Action Buttons — below the list */}
+      <div className="hidden sm:block px-4 sm:px-6 md:px-10">
+        <div className="mx-auto max-w-2xl">
+          <ActionButtons
+            goalId={goalId}
+            darkMode={darkMode}
+            accentColor={accentColor}
+            onThoughtAdded={() => setRefreshKey((k) => k + 1)}
+          />
+        </div>
+      </div>
+
+      {/* Desktop Timer + Meditation section — below list */}
+      <div className="hidden sm:flex justify-center px-4 sm:px-6 md:px-10 py-8">
+        <MeditationTimer darkMode={darkMode} accentColor={accentColor} />
+      </div>
     </div>
   );
 }
