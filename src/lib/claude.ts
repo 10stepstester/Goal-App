@@ -210,6 +210,37 @@ Reply naturally as a friend. Under 160 characters. Read the conversation — res
   }
 }
 
+export async function answerListQuestion(
+  subtasks: Subtask[],
+  question: string
+): Promise<string> {
+  if (!process.env.ANTHROPIC_API_KEY) {
+    return "I can't answer questions right now — the AI service isn't configured.";
+  }
+
+  try {
+    const taskList = subtasks
+      .map((s) => `${s.is_completed ? '[x]' : '[ ]'} ${s.title}`)
+      .join('\n');
+
+    const response = await anthropic.messages.create({
+      model: 'claude-sonnet-4-5-20250929',
+      max_tokens: 500,
+      system: 'You are a helpful assistant for a to-do/goal tracking app. Answer questions about the user\'s tasks. Be concise, friendly, and actionable. Keep responses under 200 words.',
+      messages: [{
+        role: 'user',
+        content: `Here are my current tasks:\n\n${taskList || '(no tasks yet)'}\n\nMy question: ${question}`,
+      }],
+    });
+
+    const textBlock = response.content.find((block) => block.type === 'text');
+    return textBlock ? textBlock.text.trim() : "Sorry, I couldn't generate a response.";
+  } catch (error) {
+    console.error('[Claude] Error answering list question:', error);
+    return "Something went wrong. Please try again.";
+  }
+}
+
 export interface ReorganizedItem {
   raw_subtask_id: string | null;
   title: string;

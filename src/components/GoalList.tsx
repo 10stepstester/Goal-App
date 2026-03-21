@@ -694,9 +694,13 @@ type Tab = 'raw' | 'smart';
 export default function GoalList({
   accentColor = '#3b82f6',
   darkMode = false,
+  refreshKey,
+  onGoalLoaded,
 }: {
   accentColor?: string;
   darkMode?: boolean;
+  refreshKey?: number;
+  onGoalLoaded?: (id: string) => void;
 }) {
   const dm = darkMode;
   const [activeTab, setActiveTab] = useState<Tab>('raw');
@@ -742,11 +746,12 @@ export default function GoalList({
         if (data.goal) {
           setGoalId(data.goal.id);
           setSubtasks(data.goal.subtasks || []);
+          onGoalLoaded?.(data.goal.id);
         }
       }
     } catch { /* silent */ }
     finally { setLoading(false); }
-  }, []);
+  }, [onGoalLoaded]);
 
   const fetchSmartList = useCallback(async () => {
     try {
@@ -761,7 +766,7 @@ export default function GoalList({
   useEffect(() => {
     fetchGoal();
     fetchSmartList();
-  }, [fetchGoal, fetchSmartList]);
+  }, [fetchGoal, fetchSmartList, refreshKey]);
 
   // ── Cross-device sync: poll + focus refetch ────────────────────────────────
 
