@@ -243,98 +243,6 @@ function MoveDropdown({
   );
 }
 
-// ─── LongPressSheet ──────────────────────────────────────────────────────────
-
-function LongPressSheet({
-  subtask,
-  categories,
-  onEdit,
-  onAddBelow,
-  onMove,
-  onClose,
-  darkMode,
-}: {
-  subtask: Subtask;
-  categories: { id: string; title: string }[];
-  onEdit: () => void;
-  onAddBelow: () => void;
-  onMove: (catId: string) => void;
-  onClose: () => void;
-  darkMode: boolean;
-}) {
-  const [showMoveList, setShowMoveList] = useState(false);
-  const available = categories.filter((c) => c.id !== subtask.parent_id);
-
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-40 bg-black/40" onClick={onClose} />
-      {/* Sheet */}
-      <div className={`fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-2xl pb-safe ${darkMode ? 'bg-zinc-900' : 'bg-white'}`}>
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className={`w-10 h-1 rounded-full ${darkMode ? 'bg-zinc-700' : 'bg-gray-300'}`} />
-        </div>
-        {/* Title */}
-        <p className={`px-5 py-2 text-sm font-medium truncate ${darkMode ? 'text-zinc-300' : 'text-gray-600'}`}>
-          {subtask.title || 'Untitled'}
-        </p>
-        <div className={`mx-4 h-px ${darkMode ? 'bg-zinc-800' : 'bg-gray-100'}`} />
-
-        {!showMoveList ? (
-          <div className="px-2 py-2 space-y-1">
-            <button
-              onClick={() => { onEdit(); onClose(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${darkMode ? 'text-zinc-200 hover:bg-zinc-800' : 'text-gray-700 hover:bg-gray-50'}`}
-            >
-              <svg className="w-4 h-4 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              Edit
-            </button>
-            {available.length > 0 && (
-              <button
-                onClick={() => setShowMoveList(true)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${darkMode ? 'text-zinc-200 hover:bg-zinc-800' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                <ArrowRight className="w-4 h-4 opacity-60" />
-                Move to...
-              </button>
-            )}
-            <button
-              onClick={() => { onAddBelow(); onClose(); }}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${darkMode ? 'text-zinc-200 hover:bg-zinc-800' : 'text-gray-700 hover:bg-gray-50'}`}
-            >
-              <Plus className="w-4 h-4 opacity-60" />
-              Add item below
-            </button>
-          </div>
-        ) : (
-          <div className="px-2 py-2">
-            <button
-              onClick={() => setShowMoveList(false)}
-              className={`flex items-center gap-2 px-4 py-2 text-sm mb-1 ${darkMode ? 'text-zinc-400' : 'text-gray-500'}`}
-            >
-              <ChevronRight className="w-3.5 h-3.5 rotate-180" />
-              Back
-            </button>
-            {available.map((cat) => (
-              <button
-                key={cat.id}
-                onClick={() => { onMove(cat.id); onClose(); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors ${darkMode ? 'text-zinc-200 hover:bg-zinc-800' : 'text-gray-700 hover:bg-gray-50'}`}
-              >
-                {cat.title || 'Untitled'}
-              </button>
-            ))}
-          </div>
-        )}
-        <div className="pb-6" />
-      </div>
-    </>
-  );
-}
-
 // ─── SubtaskRow ──────────────────────────────────────────────────────────────
 
 function SubtaskRow({
@@ -383,17 +291,6 @@ function SubtaskRow({
   const isCollapsed = collapsedIds.has(subtask.id);
 
   const [showMoveDropdown, setShowMoveDropdown] = useState(false);
-  const [showSheet, setShowSheet] = useState(false);
-  const [longPressActive, setLongPressActive] = useState(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Cancel long-press if a drag becomes active (prevents sheet from appearing mid-drag)
-  useEffect(() => {
-    if (isDragActive && longPressTimer.current) {
-      clearTimeout(longPressTimer.current);
-      setLongPressActive(false);
-    }
-  }, [isDragActive]);
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: subtask.id,
@@ -407,17 +304,6 @@ function SubtaskRow({
     zIndex: isDragging ? 999 : undefined,
   };
 
-  const onTouchStart = () => {
-    longPressTimer.current = setTimeout(() => {
-      setLongPressActive(true);
-      setShowSheet(true);
-    }, 500);
-  };
-  const cancelLongPress = () => {
-    if (longPressTimer.current) clearTimeout(longPressTimer.current);
-    setLongPressActive(false);
-  };
-
   const activeChildren = children.filter((c) => !c.is_completed);
   const completedChildren = children.filter((c) => c.is_completed);
 
@@ -427,11 +313,7 @@ function SubtaskRow({
         className={`group relative flex items-center gap-1.5 ${isCategory ? 'py-[7px] md:py-2' : 'py-[5px] md:py-1.5'} rounded-lg transition-all duration-100
           ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}
           ${isEffectivelyComplete && !isCategory ? 'opacity-60' : ''}
-          ${longPressActive ? 'scale-[1.01] shadow-md' : ''}
         `}
-        onTouchStart={onTouchStart}
-        onTouchEnd={cancelLongPress}
-        onTouchMove={cancelLongPress}
         style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'manipulation' }}
       >
         {/* Left-edge drag zone — handles DnD touch on mobile, invisible */}
@@ -580,18 +462,6 @@ function SubtaskRow({
         </>
       )}
 
-      {/* Long-press bottom sheet (mobile) */}
-      {showSheet && (
-        <LongPressSheet
-          subtask={subtask}
-          categories={categories}
-          onEdit={() => setEditingSubtaskId(subtask.id)}
-          onAddBelow={() => addSiblingSubtask(subtask.id)}
-          onMove={(catId) => moveSubtask(subtask.id, catId)}
-          onClose={() => { setShowSheet(false); setLongPressActive(false); }}
-          darkMode={dm}
-        />
-      )}
     </div>
   );
 }
