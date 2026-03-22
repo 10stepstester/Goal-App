@@ -832,15 +832,26 @@ export default function GoalList({
       console.log('[DragEnd] item not found in subtasks');
       return;
     }
-    // Only reorder within same parent
-    if (activeItem.parent_id !== overItem.parent_id) {
+    // Determine effective parent — orphaned items (parent completed/missing) are treated as root
+    const effectiveParent = (item: Subtask) => {
+      if (!item.parent_id) return null;
+      const parent = subtasks.find((s) => s.id === item.parent_id);
+      if (!parent || parent.is_completed) return null; // orphan → treat as root
+      return item.parent_id;
+    };
+
+    const activeParent = effectiveParent(activeItem);
+    const overParent = effectiveParent(overItem);
+
+    // Only reorder within same effective parent
+    if (activeParent !== overParent) {
       console.log('[DragEnd] different parents — cross-category drag ignored');
       return;
     }
 
-    const parentId = activeItem.parent_id;
+    const parentId = activeParent;
     const siblings = subtasks
-      .filter((s) => s.parent_id === parentId && !s.is_completed)
+      .filter((s) => effectiveParent(s) === parentId && !s.is_completed)
       .sort((a, b) => a.position - b.position);
 
     const oldIndex = siblings.findIndex((s) => s.id === activeId);
