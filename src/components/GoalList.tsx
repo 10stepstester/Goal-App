@@ -18,7 +18,7 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { ChevronRight, Plus, X, ArrowRight } from 'lucide-react';
+import { ChevronRight, Plus, X, ArrowRight, GripVertical } from 'lucide-react';
 import type { Subtask, SmartListItem } from '@/types/index';
 
 // ─── CheckIcon ──────────────────────────────────────────────────────────────
@@ -314,22 +314,27 @@ function SubtaskRow({
           ${dm ? 'hover:bg-white/5' : 'hover:bg-gray-50'}
           ${isEffectivelyComplete && !isCategory ? 'opacity-60' : ''}
         `}
-        style={{ paddingLeft: `${isCategory ? 14 : 14 + depth * 20}px`, paddingRight: '8px', touchAction: 'manipulation' }}
+        style={{ paddingLeft: `${isCategory ? 4 : 4 + depth * 20}px`, paddingRight: '8px', touchAction: 'manipulation' }}
       >
-        {/* Left-edge drag zone — handles DnD touch on mobile, invisible */}
+        {/* Drag handle */}
         <div
           {...attributes}
           {...listeners}
-          className="absolute left-0 top-0 bottom-0 w-12 z-10 cursor-grab active:cursor-grabbing md:w-full"
+          className={`flex-shrink-0 flex items-center justify-center w-8 h-10 cursor-grab active:cursor-grabbing rounded-md transition-colors
+            ${dm ? 'text-zinc-600 active:text-zinc-400 active:bg-zinc-800' : 'text-gray-300 active:text-gray-500 active:bg-gray-100'}
+            ${isEffectivelyComplete ? 'opacity-40' : ''}
+          `}
           style={{ touchAction: 'none' }}
-          aria-hidden="true"
-        />
+          aria-label="Drag to reorder"
+        >
+          <GripVertical size={20} />
+        </div>
 
         {/* Chevron for collapsible categories */}
         {isCategory && (
           <button
             onClick={() => onToggleCollapse(subtask.id)}
-            className={`flex-shrink-0 transition-transform duration-150 p-1 rounded relative z-20
+            className={`flex-shrink-0 transition-transform duration-150 p-1 rounded
               ${dm ? 'text-zinc-500 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}
             `}
           >
@@ -343,13 +348,13 @@ function SubtaskRow({
         {/* Checkbox */}
         <div
           onClick={() => toggleSubtask(subtask.id, !subtask.is_completed)}
-          className="flex-shrink-0 relative z-20"
+          className="flex-shrink-0"
         >
           <CheckIcon checked={isEffectivelyComplete} accentColor={accentColor} />
         </div>
 
         {/* Title */}
-        <div className="flex-1 min-w-0 px-1 relative z-20">
+        <div className="flex-1 min-w-0 px-1">
           <InlineEdit
             value={subtask.title}
             onSave={(title) => updateSubtaskTitle(subtask.id, title)}
@@ -369,7 +374,7 @@ function SubtaskRow({
         {isCategory && (
           <button
             onClick={() => addChildSubtask(subtask.id)}
-            className={`flex-shrink-0 p-1 rounded transition-colors relative z-20
+            className={`flex-shrink-0 p-1 rounded transition-colors
               ${dm ? 'text-zinc-600 hover:text-zinc-300' : 'text-gray-400 hover:text-gray-600'}
             `}
             title="Add task to this category"
@@ -379,7 +384,7 @@ function SubtaskRow({
         )}
 
         {/* Hover-reveal actions (desktop + non-dragging) */}
-        <div className={`flex items-center gap-0.5 flex-shrink-0 transition-opacity duration-150 relative z-20 ${
+        <div className={`flex items-center gap-0.5 flex-shrink-0 transition-opacity duration-150 ${
           isDragActive ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'
         }`}>
           {/* Add child — non-category, max depth 2 */}
@@ -576,7 +581,8 @@ export default function GoalList({
   // Drag state
   const [isDragActive, setIsDragActive] = useState(false);
 
-  // Collapsed category state
+  // Collapsed category state — categories start collapsed
+  const initialCollapseRef = useRef(false);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [completedExpanded, setCompletedExpanded] = useState(true);
   const onToggleCollapse = useCallback((id: string) => {
@@ -594,8 +600,8 @@ export default function GoalList({
 
   // DnD sensors
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
   );
 
   // ── Fetch ──────────────────────────────────────────────────────────────────
@@ -607,7 +613,17 @@ export default function GoalList({
         const data = await res.json();
         if (data.goal) {
           setGoalId(data.goal.id);
-          setSubtasks(data.goal.subtasks || []);
+          const subs = data.goal.subtasks || [];
+          setSubtasks(subs);
+          // Collapse all categories (root-level items with children) by default on first load
+          if (!initialCollapseRef.current) {
+            initialCollapseRef.current = true;
+            const rootIds = subs.filter((s: Subtask) => !s.parent_id);
+            const withChildren = rootIds.filter((r: Subtask) => subs.some((s: Subtask) => s.parent_id === r.id));
+            if (withChildren.length > 0) {
+              setCollapsedIds(new Set(withChildren.map((s: Subtask) => s.id)));
+            }
+          }
           onGoalLoaded?.(data.goal.id);
         }
       }
