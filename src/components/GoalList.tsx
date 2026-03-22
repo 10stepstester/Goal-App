@@ -615,11 +615,10 @@ export default function GoalList({
           setGoalId(data.goal.id);
           const subs = data.goal.subtasks || [];
           setSubtasks(subs);
-          // Collapse all categories (root-level items with children) by default on first load
+          // Collapse all categories (items with children) by default on first load
           if (!initialCollapseRef.current) {
             initialCollapseRef.current = true;
-            const rootIds = subs.filter((s: Subtask) => !s.parent_id);
-            const withChildren = rootIds.filter((r: Subtask) => subs.some((s: Subtask) => s.parent_id === r.id));
+            const withChildren = subs.filter((r: Subtask) => subs.some((s: Subtask) => s.parent_id === r.id));
             if (withChildren.length > 0) {
               setCollapsedIds(new Set(withChildren.map((s: Subtask) => s.id)));
             }
