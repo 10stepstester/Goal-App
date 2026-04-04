@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/db';
-import { parseSmsReply, generateCoachingReply } from '@/lib/claude';
+import { parseSmsReply } from '@/lib/claude';
 import { sendSMS } from '@/lib/twilio';
 
 export async function POST(request: Request) {
@@ -44,13 +44,13 @@ export async function POST(request: Request) {
       ),
     }));
 
-    // Get recent SMS conversation history (last 20 messages with timestamps)
+    // Get recent SMS conversation history (last 10 messages with timestamps)
     const { data: recentMessages } = await supabase
       .from('sms_conversations')
       .select('*')
       .eq('user_id', user.id)
       .order('sent_at', { ascending: false })
-      .limit(20);
+      .limit(10);
 
     const recentMessageTexts = (recentMessages || [])
       .reverse()
@@ -137,70 +137,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Generate coaching reply if the parsed one is empty or for question/other intents
-    let replyText = parsed.coachingReply;
-
-    if (!replyText && (parsed.intent === 'question' || parsed.intent === 'other')) {
-      // Re-fetch goals after modifications
-      const { data: updatedGoals } = await supabase
-        .from('goals')
-        .select('*, subtasks(*)')
-        .eq('user_id', user.id)
-        .eq('is_active', true)
-        .order('position');
-
-      const updatedGoalsWithSubtasks = (updatedGoals || []).map((goal) => ({
-        ...goal,
-        subtasks: (goal.subtasks || []).sort(
-          (a: { position: number }, b: { position: number }) => a.position - b.position
-        ),
-      }));
-
-      // Calculate context for the reply
-      const now = new Date();
-      const currentHour = parseInt(new Intl.DateTimeFormat('en-US', {
-        timeZone: user.timezone,
-        hour: '2-digit',
-        hour12: false,
-      }).format(now));
-
-      let timeOfDay = 'morning';
-      if (currentHour >= 12 && currentHour < 17) timeOfDay = 'afternoon';
-      else if (currentHour >= 17) timeOfDay = 'evening';
-
-      const currentTimeFormatted = new Intl.DateTimeFormat('en-US', {
-        timeZone: user.timezone,
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-      }).format(now);
-
-      // Calculate hours since last activity
-      const { data: lastActivityRow } = await supabase
-        .from('activity_log')
-        .select('timestamp')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(1)
-        .single();
-
-      let hoursSinceActivity = 24;
-      if (lastActivityRow) {
-        const lastTime = new Date(lastActivityRow.timestamp).getTime();
-        hoursSinceActivity = Math.round((now.getTime() - lastTime) / (1000 * 60 * 60) * 10) / 10;
-      }
-
-      replyText = await generateCoachingReply({
-        nudgeStyle: user.nudge_style,
-        goals: updatedGoalsWithSubtasks,
-        action: `User said: "${body}"`,
-        outcomeTarget: user.outcome_target,
-        timeOfDay,
-        currentTime: currentTimeFormatted,
-        recentSMS: recentMessageTexts,
-        hoursSinceActivity,
-      });
-    }
+    // Use coaching reply from parseSmsReply (always provided now)
+    const replyText = parsed.coachingReply || "Got it! I'll check back later.";
 
     // Log inbound message
     await supabase

@@ -30,17 +30,21 @@ export async function generateNudge(context: NudgeContext): Promise<string> {
 
   try {
     const goalsSummary = context.goals.map((g, i) => {
-      const subtasks = (g.subtasks || []).map(
-        (s) => `  ${s.is_completed ? '[x]' : '[ ]'} ${s.title}`
+      const incomplete = (g.subtasks || []).filter((s) => !s.is_completed);
+      const completedCount = (g.subtasks || []).length - incomplete.length;
+      const subtasks = incomplete.map(
+        (s) => `  [ ] ${s.title}`
       ).join('\n');
-      return `${i + 1}. ${g.title}\n${subtasks || '  (no subtasks)'}`;
+      const doneNote = completedCount > 0 ? `  (${completedCount} completed)` : '';
+      return `${i + 1}. ${g.title}\n${subtasks || '  (all done)'}${doneNote ? '\n' + doneNote : ''}`;
     }).join('\n');
 
     const nextTask = context.firstUncompleted
       ? `"${context.firstUncompleted.subtaskTitle}" under goal "${context.firstUncompleted.goalTitle}"`
       : 'All subtasks are completed or no subtasks exist.';
 
-    const recentConversation = context.recentSMS.length > 0 ? context.recentSMS.join('\n') : '(no recent messages)';
+    const recentSlice = context.recentSMS.slice(-10);
+    const recentConversation = recentSlice.length > 0 ? recentSlice.join('\n') : '(no recent messages)';
 
     const promptTemplate = context.customPrompt || DEFAULT_COACHING_PROMPT;
 
@@ -105,25 +109,26 @@ export async function parseSmsReply(context: ParseSmsContext): Promise<ParsedSms
   }
 
   try {
-    const goalsContext = context.goals.map((g) => ({
-      id: g.id,
-      title: g.title,
-      subtasks: (g.subtasks || []).map((s) => ({
-        id: s.id,
-        title: s.title,
-        is_completed: s.is_completed,
-      })),
-    }));
+    // Compact format: goalId|title with subtasks as subtaskId|done/todo|title
+    const goalsCompact = context.goals.map((g) => {
+      const subs = (g.subtasks || []).map(
+        (s) => `  ${s.id}|${s.is_completed ? 'done' : 'todo'}|${s.title}`
+      ).join('\n');
+      return `${g.id}|${g.title}\n${subs || '  (no subtasks)'}`;
+    }).join('\n');
+
+    // Only use last 10 messages instead of 20
+    const recentSlice = context.recentMessages.slice(-10);
 
     const userMessage = `You're a friend helping someone track goals via text. They just sent you a message. Figure out what they mean and respond naturally.
 
-Their goals:
-${JSON.stringify(goalsContext, null, 2)}
+Goals (id|title, subtasks as id|status|title):
+${goalsCompact}
 
-Recent conversation:
-${context.recentMessages.length > 0 ? context.recentMessages.join('\n') : '(none)'}
+Recent texts:
+${recentSlice.length > 0 ? recentSlice.join('\n') : '(none)'}
 
-Their new message: "${context.incomingSms}"
+Their message: "${context.incomingSms}"
 
 Respond with JSON only (no markdown):
 {
@@ -133,13 +138,13 @@ Respond with JSON only (no markdown):
   "subtasksToAdd": ["<subtask titles to add>"],
   "subtasksToComplete": ["<subtask IDs to mark complete>"],
   "needsClarification": true/false,
-  "coachingReply": "<your reply as a friend, under 160 chars>"
+  "coachingReply": "<your friendly reply, under 160 chars — ALWAYS provide a reply>"
 }
 
-Read the conversation. Respond to what they actually said. If they finished something, mark it done. If they're busy or unavailable, just acknowledge it — don't push tasks on them.`;
+Read the conversation. Respond to what they actually said. If they finished something, mark it done. If they're busy or unavailable, just acknowledge it — don't push tasks on them. IMPORTANT: Always include a good coachingReply.`;
 
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-haiku-4-5',
       max_tokens: 200,
       system: 'You are a JSON parser for an SMS-based goal tracking app. Always respond with valid JSON only, no markdown code fences.',
       messages: [{ role: 'user', content: userMessage }],

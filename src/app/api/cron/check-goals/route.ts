@@ -117,13 +117,13 @@ export async function GET(request: Request) {
           hoursSinceActivity = Math.round((now.getTime() - lastTime) / (1000 * 60 * 60) * 10) / 10;
         }
 
-        // === Fetch last 20 SMS messages with timestamps in user's timezone ===
+        // === Fetch last 10 SMS messages with timestamps in user's timezone ===
         const { data: recentSmsRows } = await supabase
           .from('sms_conversations')
           .select('*')
           .eq('user_id', user.id)
           .order('sent_at', { ascending: false })
-          .limit(20);
+          .limit(10);
 
         const recentSMS = (recentSmsRows || [])
           .reverse()

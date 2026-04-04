@@ -2,6 +2,10 @@
 
 *Last updated: 2026-03-21 (Session 4)*
 
+## Hosting
+
+- **Platform:** Vercel
+
 ## Current Status
 
 The app is functional and deployed on Vercel at https://goal-app-five-beta.vercel.app/. All recent work is committed and deployed. The dashboard has two tabs: Raw To-dos (hierarchical, editable list) and Smart List (AI-prioritized flat list), plus two action buttons between the header and list. Note: GitHub pushes do NOT auto-trigger Vercel deploys — must run `npx vercel --prod` manually after each push.
