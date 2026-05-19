@@ -35,6 +35,8 @@ export interface Subtask {
   position: number;
   created_at: string;
   ai_summary?: string | null;
+  proposed_for_daily_at?: string | null;
+  daily_response?: string | null;
   children?: Subtask[];
 }
 
