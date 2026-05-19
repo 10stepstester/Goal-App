@@ -29,6 +29,68 @@ export async function POST(request: Request) {
       );
     }
 
+    // Check for pending daily prompt before normal intent parsing
+    const { data: pendingDaily } = await supabase
+      .from('subtasks')
+      .select('id, title')
+      .eq('is_completed', false)
+      .is('daily_response', null)
+      .not('proposed_for_daily_at', 'is', null)
+      .gte('proposed_for_daily_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .limit(1)
+      .single();
+
+    if (pendingDaily) {
+      const normalized = body.trim().toLowerCase();
+      const approveWords = ['y', 'yes', 'approve', 'ok', 'sure', 'go'];
+      const skipWords = ['n', 'no', 'skip', 'pass'];
+
+      if (approveWords.includes(normalized)) {
+        await supabase
+          .from('subtasks')
+          .update({ daily_response: 'approved' })
+          .eq('id', pendingDaily.id);
+
+        const replyText = "✅ Got it. I'll text when it's done.";
+
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'inbound', message_text: body, goal_context: null });
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'outbound', message_text: replyText, goal_context: null });
+
+        await sendSMS(user.phone_number, replyText);
+
+        return new NextResponse('<Response></Response>', {
+          headers: { 'Content-Type': 'text/xml' },
+        });
+      }
+
+      if (skipWords.includes(normalized)) {
+        await supabase
+          .from('subtasks')
+          .update({ daily_response: 'skipped' })
+          .eq('id', pendingDaily.id);
+
+        const replyText = "👍 Skipped. I'll pick a different one tomorrow.";
+
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'inbound', message_text: body, goal_context: null });
+        await supabase
+          .from('sms_conversations')
+          .insert({ user_id: user.id, direction: 'outbound', message_text: replyText, goal_context: null });
+
+        await sendSMS(user.phone_number, replyText);
+
+        return new NextResponse('<Response></Response>', {
+          headers: { 'Content-Type': 'text/xml' },
+        });
+      }
+      // Not a Y/N response — fall through to normal intent parsing
+    }
+
     // Fetch user's goals with subtasks
     const { data: goals } = await supabase
       .from('goals')
