@@ -43,6 +43,7 @@ export async function PATCH(request: Request) {
       'accent_color',
       'dark_mode',
       'custom_prompt',
+      'focus',
     ];
 
     const updateFields: Record<string, unknown> = {};

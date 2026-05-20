@@ -579,6 +579,12 @@ export default function GoalList({
   // Completed section toggle
   const [completedExpanded, setCompletedExpanded] = useState(true);
 
+  // Focus state
+  const [focus, setFocus] = useState<string>('');
+  const [focusEditing, setFocusEditing] = useState(false);
+  const [focusSaving, setFocusSaving] = useState(false);
+  const focusInputRef = useRef<HTMLInputElement>(null);
+
   // Ref to track if we've done initial collapse
   const initialCollapseRef = useRef(false);
 
@@ -634,10 +640,33 @@ export default function GoalList({
     } catch { /* silent */ }
   }, []);
 
+  const fetchFocus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/user/settings');
+      if (res.ok) {
+        const data = await res.json();
+        setFocus(data.user?.focus || '');
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  const saveFocus = useCallback(async (value: string) => {
+    setFocusSaving(true);
+    try {
+      await fetch('/api/user/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ focus: value || null }),
+      });
+    } catch { /* silent */ }
+    finally { setFocusSaving(false); }
+  }, []);
+
   useEffect(() => {
     fetchGoal();
     fetchSmartList();
-  }, [fetchGoal, fetchSmartList, refreshKey]);
+    fetchFocus();
+  }, [fetchGoal, fetchSmartList, fetchFocus, refreshKey]);
 
   // ── Cross-device sync: poll + focus refetch ────────────────────────────────
 
@@ -992,6 +1021,54 @@ export default function GoalList({
               </button>
             );
           })}
+        </div>
+
+        {/* Focus card */}
+        <div
+          className={`px-3 sm:px-4 py-2 cursor-pointer select-none ${dm ? 'bg-zinc-800/60 border-b border-zinc-700/50' : 'bg-gray-50 border-b border-gray-100'}`}
+          onClick={() => {
+            if (!focusEditing) {
+              setFocusEditing(true);
+              setTimeout(() => focusInputRef.current?.focus(), 0);
+            }
+          }}
+        >
+          {focusEditing ? (
+            <div className="flex items-center gap-2">
+              <span className="text-sm flex-shrink-0">🎯</span>
+              <input
+                ref={focusInputRef}
+                type="text"
+                value={focus}
+                onChange={(e) => setFocus(e.target.value)}
+                onBlur={() => {
+                  setFocusEditing(false);
+                  saveFocus(focus);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    setFocusEditing(false);
+                    saveFocus(focus);
+                  }
+                }}
+                placeholder="What's your focus today?"
+                className={`flex-1 text-sm bg-transparent outline-none ${dm ? 'text-white placeholder-zinc-500' : 'text-gray-900 placeholder-gray-400'}`}
+              />
+              {focusSaving && (
+                <div className="w-3 h-3 border border-t-transparent rounded-full animate-spin flex-shrink-0"
+                  style={{ borderColor: accentColor, borderTopColor: 'transparent' }} />
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <span className="text-sm flex-shrink-0">🎯</span>
+              {focus ? (
+                <span className={`text-sm ${dm ? 'text-zinc-200' : 'text-gray-700'}`}>{focus}</span>
+              ) : (
+                <span className={`text-sm ${dm ? 'text-zinc-500' : 'text-gray-400'}`}>Set today&apos;s focus...</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Content panel */}

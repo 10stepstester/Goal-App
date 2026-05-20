@@ -11,6 +11,7 @@ export interface User {
   accent_color: string;
   dark_mode: boolean;
   custom_prompt: string | null;
+  focus: string | null;
   created_at: string;
 }
 
