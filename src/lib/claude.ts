@@ -155,7 +155,11 @@ Read the conversation. Respond to what they actually said. If they finished some
     const textBlock = response.content.find((block) => block.type === 'text');
     if (!textBlock) return fallback;
 
-    const parsed = JSON.parse(textBlock.text.trim()) as ParsedSmsReply;
+    // Strip markdown code fences if present
+    let jsonText = textBlock.text.trim();
+    jsonText = jsonText.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+
+    const parsed = JSON.parse(jsonText) as ParsedSmsReply;
     return parsed;
   } catch (error) {
     console.error('[Claude] Error parsing SMS reply:', error);
