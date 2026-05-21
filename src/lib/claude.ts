@@ -17,6 +17,7 @@ interface NudgeContext {
   currentTime: string;
   recentSMS: string[];
   customPrompt?: string | null;
+  focus?: string | null;
 }
 
 export async function generateNudge(context: NudgeContext): Promise<string> {
@@ -56,7 +57,8 @@ export async function generateNudge(context: NudgeContext): Promise<string> {
       .replace(/\{\{outcome_target\}\}/g, context.outcomeTarget)
       .replace(/\{\{goals_summary\}\}/g, goalsSummary)
       .replace(/\{\{next_task\}\}/g, nextTask)
-      .replace(/\{\{recent_conversation\}\}/g, recentConversation);
+      .replace(/\{\{recent_conversation\}\}/g, recentConversation)
+      .replace(/\{\{focus\}\}/g, context.focus ? `TODAY'S FOCUS (set by user): "${context.focus}". Respect this above your own judgment.` : '');
 
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',

@@ -163,6 +163,7 @@ export async function GET(request: Request) {
           currentTime: currentTimeFormatted,
           recentSMS,
           customPrompt: user.custom_prompt,
+          focus: user.focus,
         });
 
         // Check if AI decided to skip

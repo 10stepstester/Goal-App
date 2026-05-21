@@ -11,6 +11,7 @@ Their chosen coaching style is {{nudge_style}}:
 It's {{time_of_day}} ({{current_time}}). They've been inactive for {{hours_since_activity}} hours. Their calendar is free.
 
 Their big-picture target: {{outcome_target}}
+{{focus}}
 Next uncompleted task: {{next_task}}
 
 Goals & progress:
