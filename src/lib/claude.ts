@@ -18,6 +18,8 @@ interface NudgeContext {
   recentSMS: string[];
   customPrompt?: string | null;
   focus?: string | null;
+  currentDate?: string;
+  dayOfWeek?: string;
   sprintTracks?: string[];
   effectiveFocus?: string | null;
   nudgeGuidance?: string | null;
@@ -54,6 +56,8 @@ export async function generateNudge(context: NudgeContext): Promise<string> {
 
     const filledPrompt = promptTemplate
       .replace(/\{\{nudge_style\}\}/g, context.nudgeStyle)
+      .replace(/\{\{current_date\}\}/g, context.currentDate || '')
+      .replace(/\{\{day_of_week\}\}/g, context.dayOfWeek || '')
       .replace(/\{\{time_of_day\}\}/g, context.timeOfDay)
       .replace(/\{\{current_time\}\}/g, context.currentTime)
       .replace(/\{\{hours_since_activity\}\}/g, String(context.hoursSinceActivity))

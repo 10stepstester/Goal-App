@@ -150,6 +150,21 @@ export async function GET(request: Request) {
           hoursSinceActivity = Math.round((now.getTime() - lastTime) / (1000 * 60 * 60) * 10) / 10;
         }
 
+        // === 5-minute cooldown: skip if we sent a message in the last 5 min ===
+        const fiveMinAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+        const { data: recentOutbound } = await supabase
+          .from('sms_conversations')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('direction', 'outbound')
+          .gte('sent_at', fiveMinAgo)
+          .limit(1);
+
+        if (recentOutbound && recentOutbound.length > 0) {
+          summary.push({ userId: user.id, action: 'skipped_cooldown_5min' });
+          continue;
+        }
+
         // === Fetch last 10 SMS messages with timestamps in user's timezone ===
         const { data: recentSmsRows } = await supabase
           .from('sms_conversations')
@@ -185,6 +200,18 @@ export async function GET(request: Request) {
         if (currentHour >= 12 && currentHour < 17) timeOfDay = 'afternoon';
         else if (currentHour >= 17) timeOfDay = 'evening';
 
+        // Format current date and day of week in user's timezone
+        const currentDateFormatted = new Intl.DateTimeFormat('en-US', {
+          timeZone: user.timezone,
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }).format(now);
+        const dayOfWeek = new Intl.DateTimeFormat('en-US', {
+          timeZone: user.timezone,
+          weekday: 'long',
+        }).format(now);
+
         // === AI DECIDES: SEND or SKIP ===
         const result = await generateNudge({
           nudgeStyle: user.nudge_style,
@@ -194,6 +221,8 @@ export async function GET(request: Request) {
           hoursSinceActivity,
           timeOfDay,
           currentTime: currentTimeFormatted,
+          currentDate: currentDateFormatted,
+          dayOfWeek,
           recentSMS,
           customPrompt: user.custom_prompt,
           focus: user.focus,
