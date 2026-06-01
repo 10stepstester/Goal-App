@@ -79,10 +79,12 @@ export async function refreshAccessToken(refreshToken: string): Promise<string |
 async function checkFreeBusy(oauth2Client: any): Promise<boolean> {
   const calendar = google.calendar({ version: 'v3', auth: oauth2Client });
   const now = new Date();
-  // Check a 30-minute window: 5 min ago to 25 min from now
-  // This catches events currently happening and ones about to start
+  // Check a 10-minute window: 5 min ago to 5 min from now.
+  // Catches an appointment currently happening or starting within ~5 min, while
+  // leaving the between-patient gaps open for nudges. A wider look-ahead (e.g. 25
+  // min) swallows the ~30-min gaps entirely and suppresses every tick.
   const windowStart = new Date(now.getTime() - 5 * 60000);
-  const windowEnd = new Date(now.getTime() + 25 * 60000);
+  const windowEnd = new Date(now.getTime() + 5 * 60000);
   const response = await calendar.freebusy.query({
     requestBody: {
       timeMin: windowStart.toISOString(),
