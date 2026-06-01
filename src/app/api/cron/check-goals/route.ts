@@ -133,7 +133,16 @@ export async function GET(request: Request) {
           .single();
 
         const effectiveFocus = user.focus || advisory?.recommended_focus || null;
-        const nudgeGuidance = advisory?.nudge_guidance || null;
+        // The advisory's nudge_guidance is written around advisory.recommended_focus.
+        // If the user has set a manual focus that differs, that guidance is about a
+        // different priority and would drown out the manual focus — so drop it and let
+        // the manual focus govern. When focus is blank, the advisory drives as normal.
+        const manualFocusOverridesAdvisory =
+          !!user.focus?.trim() &&
+          user.focus.trim() !== (advisory?.recommended_focus || '').trim();
+        const nudgeGuidance = manualFocusOverridesAdvisory
+          ? null
+          : advisory?.nudge_guidance || null;
 
         // === Calculate hours since last activity ===
         const { data: lastActivityRow } = await supabase
