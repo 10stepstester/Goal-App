@@ -1,31 +1,13 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { supabase } from '@/lib/db';
+import { PLAN_V4, PLAN_AMENDMENTS, planWeek } from '@/lib/plan';
 
 const anthropic = new Anthropic();
 
-const ADVISORS = [
-  {
-    name: 'Dr. Mara',
-    system: `You are Dr. Mara — a solo chiropractor who grew her practice from scratch. You know what marketing actually fills the schedule vs. what just feels productive. You've been where this person is: running a clinic full-time while trying to build systems on the side. You speak from experience about what moves the needle for patient volume. One paragraph, direct and practical.`,
-  },
-  {
-    name: 'Sam Patel',
-    system: `You are Sam Patel — an indie SaaS founder who built and sold a niche B2B tool. You're allergic to half-built side projects bleeding time. You think in terms of shipping, cutting scope, and not letting the builder's instinct eat the operator's calendar. One paragraph, sharp and opinionated.`,
-  },
-  {
-    name: 'Jess Romero',
-    system: `You are Jess Romero — a local-marketing and SEO operator. You live in Google Business Profile, reviews, short-form video, and local citations. You know what actually drives foot traffic to a local health practice. One paragraph, tactical and specific.`,
-  },
-  {
-    name: 'Tony',
-    system: `You are Tony — a solo-operator productivity coach. Deep work, time-blocking, ruthless about what fits in a 5-hour-per-week side budget. You help people who are stretched thin protect their most valuable hours. One paragraph, structured and no-nonsense.`,
-  },
-  {
-    name: 'Vik',
-    system: `You are Vik — The Prioritizer, Naval/Thiel-flavored. You keep asking "what's the one thing?" until everyone aligns. You cut through noise and force focus on the highest-leverage action. One paragraph, philosophical but pointed.`,
-  },
-];
+const ADVISORY_SYSTEM = `You are Ladd's locked strategic advisory board distilled into one voice. The plan is DECIDED — do not re-plan or suggest alternatives. Given the plan, the dated amendments (which OVERRIDE the plan where they conflict), today's date, the current plan week, and recent activity, output the single most important thing Ladd should do next as one SMS he'd actually act on. If a kill-criterion or overdue long-pole item applies, it overrides everything.
+
+Output strict JSON, nothing else: { "recommended_focus": "<short label>", "the_text": "<the SMS, <=160 chars, no preamble>", "why": "<1 sentence for the log>" }`;
 
 export async function POST(request: Request) {
   try {
@@ -48,7 +30,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to fetch user' }, { status: 500 });
     }
 
-    // Find Sprint item across all active goals
+    // Sprint lookup — soft fallback only. v4 (plan.ts) is now the primary content
+    // source; the Sprint item just gives a snapshot of in-progress tracks if present.
     const { data: goals } = await supabase
       .from('goals')
       .select('*, subtasks(*)')
@@ -56,39 +39,25 @@ export async function POST(request: Request) {
       .eq('is_active', true)
       .order('position');
 
-    if (!goals || goals.length === 0) {
-      return NextResponse.json({ error: 'No active goals found' }, { status: 404 });
-    }
-
     const sprintRegex = /sprint/i;
-    let sprintItem = null;
-    let sprintGoal = null;
-    for (const goal of goals) {
+    let sprintTracks: { title: string; completed: boolean }[] = [];
+    for (const goal of goals || []) {
       const sorted = (goal.subtasks || []).sort(
         (a: { position: number }, b: { position: number }) => a.position - b.position
       );
-      const found = sorted.find(
+      const sprintItem = sorted.find(
         (s: { title: string; parent_id: string | null }) => !s.parent_id && sprintRegex.test(s.title)
       );
-      if (found) {
-        sprintItem = found;
-        sprintGoal = { ...goal, subtasks: sorted };
+      if (sprintItem) {
+        sprintTracks = sorted
+          .filter((s: { parent_id: string | null }) => s.parent_id === sprintItem.id)
+          .map((s: { title: string; is_completed: boolean }) => ({
+            title: s.title,
+            completed: s.is_completed,
+          }));
         break;
       }
     }
-
-    if (!sprintItem) {
-      return NextResponse.json({ error: 'No Sprint item found. Add a top-level subtask matching "Sprint" to enable the morning advisory.' }, { status: 404 });
-    }
-
-    // Collect sprint tracks with completion state
-    const sprintChildren = (sprintGoal!.subtasks || []).filter(
-      (s: { parent_id: string | null }) => s.parent_id === sprintItem.id
-    );
-    const sprintTracks = sprintChildren.map((s: { title: string; is_completed: boolean }) => ({
-      title: s.title,
-      completed: s.is_completed,
-    }));
 
     // Compute yesterday's activity
     const now = new Date();
@@ -143,7 +112,7 @@ export async function POST(request: Request) {
       median_reply_latency_min: medianReplyLatencyMin,
     };
 
-    // Build context for advisors
+    // Date context (timezone-aware)
     const todayLocal = new Intl.DateTimeFormat('en-CA', {
       timeZone: user.timezone,
     }).format(now);
@@ -152,75 +121,49 @@ export async function POST(request: Request) {
       weekday: 'long',
     }).format(now);
 
-    const contextPayload = {
-      sprint_tracks: sprintTracks,
-      sprint_completion_state: {
-        total: sprintTracks.length,
-        completed: sprintTracks.filter((t: { completed: boolean }) => t.completed).length,
-        incomplete: sprintTracks.filter((t: { completed: boolean }) => !t.completed).length,
-      },
-      yesterday_activity: yesterdayActivity,
-      current_date_local: todayLocal,
-      weekday,
-    };
+    const userPrompt = `# THE PLAN (locked, v4)
+${PLAN_V4}
 
-    const contextText = JSON.stringify(contextPayload, null, 2);
+# DATED AMENDMENTS (override the plan where they conflict)
+${PLAN_AMENDMENTS}
 
-    const advisorPrompt = `Here is today's context for a solo chiropractor who is also building software tools. His quarterly goal is more patients in the chair. He has a 5-track sprint and works on it in whatever time he can carve out around a full clinical schedule.
+# TODAY
+Date: ${todayLocal} (${weekday})
+Current plan week: ${planWeek(now)}
 
-Context:
-${contextText}
+# RECENT ACTIVITY
+${JSON.stringify(yesterdayActivity, null, 2)}
 
-Based on this context, give your perspective on what he should focus on today and how to approach it. One paragraph.`;
+# IN-PROGRESS SPRINT TRACKS (soft context; defer to the plan if they conflict)
+${JSON.stringify(sprintTracks, null, 2)}
 
-    // Fire 5 advisor calls in parallel
-    const advisorPromises = ADVISORS.map(async (advisor) => {
-      const response = await anthropic.messages.create({
-        model: 'claude-sonnet-4-5-20250929',
-        max_tokens: 300,
-        system: advisor.system,
-        messages: [{ role: 'user', content: advisorPrompt }],
-      });
-      const textBlock = response.content.find((block) => block.type === 'text');
-      return {
-        advisor_name: advisor.name,
-        perspective_text: textBlock?.text.trim() || '',
-      };
-    });
+Output the JSON now.`;
 
-    const advisorResults = await Promise.all(advisorPromises);
-
-    // Fire synthesizer call
-    const advisorPerspectives = advisorResults
-      .map((r) => `**${r.advisor_name}:** ${r.perspective_text}`)
-      .join('\n\n');
-
-    const synthResponse = await anthropic.messages.create({
+    const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 500,
-      system: `You are synthesizing 5 advisor perspectives into a daily focus and nudge guidance for an aggressive every-10-min SMS coach. The coach will text the user relentlessly today using this guidance. Output strict JSON: { "recommended_focus": "<exact sprint track title>", "nudge_guidance": "<paragraph describing today's tone, angle, what to celebrate, what to push on, what to back off from based on the advisor consensus and yesterday's signals>" }.`,
-      messages: [{
-        role: 'user',
-        content: `Context:\n${contextText}\n\nAdvisor perspectives:\n${advisorPerspectives}\n\nSynthesize into the JSON output.`,
-      }],
+      system: ADVISORY_SYSTEM,
+      messages: [{ role: 'user', content: userPrompt }],
     });
 
-    const synthBlock = synthResponse.content.find((block) => block.type === 'text');
-    let synthJson = synthBlock?.text.trim() || '{}';
-    synthJson = synthJson.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
+    const textBlock = response.content.find((block) => block.type === 'text');
+    let raw = textBlock?.text.trim() || '{}';
+    raw = raw.replace(/^```(?:json)?\s*\n?/, '').replace(/\n?```\s*$/, '');
 
-    let synthesis: { recommended_focus: string; nudge_guidance: string };
+    let advisory: { recommended_focus: string; the_text: string; why: string };
     try {
-      synthesis = JSON.parse(synthJson);
+      advisory = JSON.parse(raw);
     } catch {
-      console.error('[MorningAdvisory] Failed to parse synthesizer JSON:', synthJson);
-      synthesis = {
-        recommended_focus: sprintTracks.find((t: { completed: boolean }) => !t.completed)?.title || '',
-        nudge_guidance: 'Push hard on the first incomplete sprint track. Celebrate any completions from yesterday. Escalate if silence.',
+      console.error('[MorningAdvisory] Failed to parse advisory JSON:', raw);
+      advisory = {
+        recommended_focus: sprintTracks.find((t) => !t.completed)?.title || 'Execute the plan',
+        the_text: 'Pick the highest-leverage plan item for this week and ship one concrete step today.',
+        why: 'Fallback: model JSON parse failed.',
       };
     }
 
-    // Upsert daily_advisory row
+    // Upsert daily_advisory — schema unchanged. check-goals reads recommended_focus
+    // + nudge_guidance, so the SMS (the_text) maps into nudge_guidance.
     const { data: advisoryRow, error: upsertError } = await supabase
       .from('daily_advisory')
       .upsert(
@@ -229,9 +172,9 @@ Based on this context, give your perspective on what he should focus on today an
           date: todayLocal,
           sprint_snapshot: sprintTracks,
           yesterday_activity: yesterdayActivity,
-          advisor_transcript: advisorResults,
-          recommended_focus: synthesis.recommended_focus,
-          nudge_guidance: synthesis.nudge_guidance,
+          advisor_transcript: { the_text: advisory.the_text, why: advisory.why },
+          recommended_focus: advisory.recommended_focus,
+          nudge_guidance: advisory.the_text,
         },
         { onConflict: 'user_id,date' }
       )
@@ -243,7 +186,7 @@ Based on this context, give your perspective on what he should focus on today an
       return NextResponse.json({ error: 'Failed to save advisory', details: upsertError }, { status: 500 });
     }
 
-    console.log(`[MorningAdvisory] Advisory created for ${todayLocal}:`, synthesis.recommended_focus);
+    console.log(`[MorningAdvisory] Advisory created for ${todayLocal}:`, advisory.recommended_focus);
 
     return NextResponse.json({
       success: true,
